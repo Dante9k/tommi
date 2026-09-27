@@ -3,7 +3,7 @@ using System;
 namespace Tomato
 {
     // Bounded polyphony, reusable buffers and no delayed event queue.
-    public sealed class EffectMixer
+    public sealed class EffectMixer : IPcmSource
     {
         public const int SampleRate = 44100, FramesPerBlock = 441, VoiceLimit = 16;
         readonly object sync = new object ();

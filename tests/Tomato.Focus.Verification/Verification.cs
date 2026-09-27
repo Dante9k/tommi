@@ -212,6 +212,7 @@ namespace Tomato.Tests
                 Assert(!flight.Step(7, 1920, 1080), "寿命回收");
                 lines.Add("PASS 抛物线、反弹与粒子回收");
                 EffectVerification.Run(lines);
+                WheelVerification.Run(lines);
                 var wheel = new TimeWheel(60, "秒");
                 int feedbackCount = 0;
                 wheel.DetentCrossed += delegate
@@ -680,12 +681,13 @@ namespace Tomato.Tests
                         var peer = System.Windows.Automation.Peers.UIElementAutomationPeer.CreatePeerForElement(inputWheel);
                         var range = (System.Windows.Automation.Provider.IRangeValueProvider)peer.GetPattern(System.Windows.Automation.Peers.PatternInterface.RangeValue);
                         range.SetValue(5);
-                        Assert(clicks == 2 && inputWheel.Value == 5, "手动数值输入反馈一次");
+                        Assert(clicks == 1 && inputWheel.Value == 5, "手动数值输入在绘制前保持安静");
                         log.Add("PASS 实际拨轮事件、环绕动画、逐格反馈与数值输入");
                         stage++;
                     }
                     else if (stage == 0 && elapsed > 1.1)
                     {
+                        Assert(clicks == 2, "手动输入在真实绘制时反馈一次");
                         controller.Window.Duration = 2;
                         controller.Start();
                         Assert(controller.Phase == TimerPhase.Running && controller.Window.IsVisible, "启动后原位显示");

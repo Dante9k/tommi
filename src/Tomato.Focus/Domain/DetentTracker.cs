@@ -24,6 +24,11 @@ namespace Tomato
     public sealed class FeedbackGate
     {
         double last = double.NegativeInfinity;
+        public void Reset()
+        {
+            last = double.NegativeInfinity;
+        }
+
         public bool Accept(double seconds)
         {
             if (seconds - last < .05)

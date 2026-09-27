@@ -85,7 +85,7 @@ namespace Tomato
                 dragging = false;
                 ReleaseMouseCapture();
                 position = target = Wrap(value);
-                detents.Reset(position);
+                detents.Reset(Wrap((int)Math.Round(position)));
                 motionVelocity = 0;
                 Notify();
                 InvalidateVisual();
@@ -126,6 +126,8 @@ namespace Tomato
             if (IsKeyboardFocused)
                 dc.DrawRoundedRectangle(null, focusPen, new Rect(2, 30, ActualWidth - 4, 30), 6, 6);
             dc.Pop();
+            // Commit a single detent for the frame WPF draws, not for every input update.
+            Feedback();
         }
 
         void Notify()
@@ -172,7 +174,6 @@ namespace Tomato
                 speed = .55 * speed + .45 * (lastY - y) / Row / dt;
             position = downPosition + (downY - y) / Row;
             target = position;
-            Feedback();
             Notify();
             lastY = y;
             lastMove = Stopwatch.GetTimestamp();
@@ -252,7 +253,7 @@ namespace Tomato
             ReleaseMouseCapture();
             target = Math.Round(target);
             position = target;
-            detents.Reset(position);
+            detents.Reset(Wrap((int)Math.Round(position)));
             motionVelocity = 0;
             EndAnimation();
             Notify();
@@ -261,21 +262,25 @@ namespace Tomato
 
         void SetFromInput(int value)
         {
-            int old = Value;
-            Value = value;
-            if (old != Value)
-                EmitDetent();
+            // Retain the last drawn index across input bursts before the next frame.
+            EndAnimation();
+            dragging = false;
+            ReleaseMouseCapture();
+            position = target = Wrap(value);
+            motionVelocity = 0;
+            Notify();
+            InvalidateVisual();
         }
 
         void Feedback()
         {
-            if (detents.Move(position))
+            if (detents.Move(Wrap((int)Math.Round(position))))
                 EmitDetent();
         }
 
         void EmitDetent()
         {
-            if (!IsEnabled)
+            if (!IsEnabled || !IsVisible)
                 return;
             if (DetentCrossed != null)
                 DetentCrossed(this, EventArgs.Empty);
@@ -287,7 +292,6 @@ namespace Tomato
             {
                 position = target;
                 motionVelocity = 0;
-                Feedback();
                 EndAnimation();
                 InvalidateVisual();
                 return;
@@ -309,7 +313,6 @@ namespace Tomato
             double dt = Math.Min(.1, (now - previous) / (double)Stopwatch.Frequency);
             previous = now;
             WheelMotion.Advance(ref position, ref motionVelocity, target, dt);
-            Feedback();
             if (Math.Abs(target - position) < .0008 && Math.Abs(motionVelocity) < .02)
             {
                 position = target;

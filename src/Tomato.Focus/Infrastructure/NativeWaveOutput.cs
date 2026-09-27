@@ -4,11 +4,12 @@ using System.Threading;
 
 namespace Tomato
 {
-    // Three reusable 10ms stereo buffers; the UI only adds voices to the bounded mixer.
+    // Reusable stereo buffers: effects use 3 x 10ms; wheel feedback uses 2 x 5ms.
     // WaveOut owns each prepared buffer until DONE/reset. Only the audio thread releases it.
     public sealed class NativeWaveOutput : IDisposable
     {
-        readonly EffectMixer mixer;
+        readonly IPcmSource mixer;
+        readonly int framesPerBlock, bufferCount;
         readonly AutoResetEvent wake = new AutoResetEvent(false);
         readonly Thread thread;
         readonly uint deviceId;
@@ -42,9 +43,17 @@ namespace Tomato
         {
         }
 
-        public NativeWaveOutput(EffectMixer mixer, uint deviceId)
+        public NativeWaveOutput(EffectMixer mixer, uint deviceId) : this(mixer, deviceId, EffectMixer.FramesPerBlock, 3)
+        {
+        }
+
+        public NativeWaveOutput(IPcmSource mixer, uint deviceId, int framesPerBlock, int bufferCount)
         {
             this.mixer = mixer;
+            if (framesPerBlock < 1 || bufferCount < 2 || bufferCount > 3)
+                throw new ArgumentOutOfRangeException();
+            this.framesPerBlock = framesPerBlock;
+            this.bufferCount = bufferCount;
             this.deviceId = deviceId;
             thread = new Thread(Run)
             {
@@ -57,7 +66,7 @@ namespace Tomato
         void Run()
         {
             IntPtr device = IntPtr.Zero;
-            var buffers = new Buffer[3];
+            var buffers = new Buffer[bufferCount];
             try
             {
                 var format = new WaveFormat
@@ -71,7 +80,7 @@ namespace Tomato
                 };
                 Check(waveOutOpen(out device, deviceId, ref format, wake.SafeWaitHandle.DangerousGetHandle(), IntPtr.Zero, 0x00050000));
                 for (int i = 0; i < buffers.Length; i++)
-                    buffers[i] = new Buffer(device);
+                    buffers[i] = new Buffer(device, framesPerBlock);
                 ready = true;
                 while (Interlocked.CompareExchange(ref stopping, 0, 0) == 0)
                 {
@@ -140,7 +149,7 @@ namespace Tomato
 
         sealed class Buffer
         {
-            public readonly short[] Samples = new short[EffectMixer.FramesPerBlock * 2];
+            public readonly short[] Samples;
             IntPtr data, header;
             bool prepared;
             public bool Queued;
@@ -154,10 +163,11 @@ namespace Tomato
                 }
             }
 
-            public Buffer(IntPtr device)
+            public Buffer(IntPtr device, int frames)
             {
                 try
                 {
+                    Samples = new short[frames * 2];
                     data = Marshal.AllocHGlobal(Samples.Length * 2);
                     header = Marshal.AllocHGlobal((int)HeaderSize);
                     Marshal.StructureToPtr(new WaveHeader { Data = data, BufferLength = (uint)(Samples.Length * 2) }, header, false);
