@@ -17,10 +17,10 @@ namespace Tomato.Tests
                 return Verification.Render();
             if (mode == "--installer-test" && args.Length == 2)
                 return InstallerVerification.Run(args[1]);
-            if (mode != "--smoke-test" && mode != "--focus-smoke" && mode != "--settings-smoke")
+            if (mode != "--smoke-test" && mode != "--focus-smoke" && mode != "--settings-smoke" && mode != "--wheel-smoke")
             {
                 Console.Error.WriteLine("Unknown mode: " + mode);
-                Console.Error.WriteLine("Usage: Tomato.Verify.exe [--self-test|--render-preview|--smoke-test|--focus-smoke|--settings-smoke|--installer-test SETUP_PATH]");
+                Console.Error.WriteLine("Usage: Tomato.Verify.exe [--self-test|--render-preview|--smoke-test|--focus-smoke|--settings-smoke|--wheel-smoke|--installer-test SETUP_PATH]");
                 return 2;
             }
 
@@ -41,7 +41,9 @@ namespace Tomato.Tests
             {
                 controller = new AppController(application, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "smoke-state.xml"), new StartupVerification.FakeRegistration());
                 controller.Launch(false);
-                if (mode == "--settings-smoke")
+                if (mode == "--wheel-smoke")
+                    WheelVerification.Smoke(controller);
+                else if (mode == "--settings-smoke")
                     Verification.SettingsSmoke(controller);
                 else if (mode == "--focus-smoke")
                     Verification.FocusSmoke(controller);

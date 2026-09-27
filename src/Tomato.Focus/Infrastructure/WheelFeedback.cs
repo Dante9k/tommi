@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Media;
 using System.Reflection;
 
 namespace Tomato
@@ -10,11 +9,18 @@ namespace Tomato
     {
         readonly FeedbackGate gate = new FeedbackGate();
         readonly OptionalHaptics haptics = new OptionalHaptics();
-        readonly MemoryStream[] waves = new MemoryStream[3];
-        readonly SoundPlayer[] players = new SoundPlayer[3];
+        readonly short[][] clicks = new short[3][];
+        readonly WheelAudioSource source = new WheelAudioSource();
+        NativeWaveOutput output;
         int nextClick;
-        bool audioAvailable = true;
-        bool played;
+        public bool AudioReady
+        {
+            get
+            {
+                return output != null && output.Ready;
+            }
+        }
+
         public bool HapticsAvailable
         {
             get
@@ -25,38 +31,40 @@ namespace Tomato
 
         public WheelFeedback()
         {
-            try
-            {
-                for (int i = 0; i < players.Length; i++)
+            for (int i = 0; i < clicks.Length; i++)
+                using (var wave = CreateClick(i))
                 {
-                    waves[i] = CreateClick(i);
-                    players[i] = new SoundPlayer(waves[i]);
-                    players[i].Load();
+                    wave.Position = 44;
+                    var reader = new BinaryReader(wave);
+                    clicks[i] = new short[(wave.Length - 44) / 2];
+                    for (int n = 0; n < clicks[i].Length; n++)
+                        clicks[i][n] = reader.ReadInt16();
                 }
-            }
-            catch (Exception)
+        }
+
+        public void Prepare(bool enabled)
+        {
+            if (!enabled)
             {
-                audioAvailable = false;
+                Stop();
+                return;
             }
+
+            // Prewarm while the editor is visible: two 5ms buffers, no per-click device startup.
+            if (output == null)
+                output = new NativeWaveOutput(source, uint.MaxValue, 220, 2);
         }
 
         public void Tick(bool sound, bool vibrate)
         {
-            if (!gate.Accept(Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency))
+            double now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
+            if (!gate.Accept(now))
                 return;
-            if (sound && audioAvailable)
+            // A device still opening or unavailable drops the click; it must never catch up later.
+            if (sound && AudioReady)
             {
-                try
-                {
-                    players[nextClick++ % players.Length].Play();
-                    if (nextClick >= players.Length)
-                        nextClick = 0;
-                    played = true;
-                }
-                catch (Exception)
-                {
-                    audioAvailable = false;
-                }
+                source.Play(clicks[nextClick], now);
+                nextClick = (nextClick + 1) % clicks.Length;
             }
 
             if (vibrate)
@@ -65,23 +73,17 @@ namespace Tomato
 
         public void Stop()
         {
-            // SoundPlayer shares the process audio channel: stop only our own active feedback.
-            if (played && players[0] != null)
-                players[0].Stop();
-            played = false;
+            source.Clear();
+            if (output != null)
+                output.Dispose();
+            output = null;
+            gate.Reset();
             haptics.Stop();
         }
 
         public void Dispose()
         {
             Stop();
-            for (int i = 0; i < players.Length; i++)
-            {
-                if (players[i] != null)
-                    players[i].Dispose();
-                if (waves[i] != null)
-                    waves[i].Dispose();
-            }
         }
 
         public static MemoryStream CreateClick()

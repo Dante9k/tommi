@@ -106,7 +106,7 @@ namespace Tomato
         public void ToggleWheelSound()
         {
             preferences.WheelSound = !WheelSound;
-            StopWheelFeedback();
+            PrepareWheelFeedback();
             Save();
         }
 
@@ -114,7 +114,22 @@ namespace Tomato
         {
             preferences.Haptics = !Haptics;
             StopWheelFeedback();
+            PrepareWheelFeedback();
             Save();
+        }
+
+        public bool WheelAudioReady
+        {
+            get
+            {
+                return wheelFeedback.AudioReady;
+            }
+        }
+
+        public void PrepareWheelFeedback()
+        {
+            if (initialized)
+                wheelFeedback.Prepare(WheelSound && Window.IsVisible && Phase == TimerPhase.Editing && !IsThrowing);
         }
 
         public void WheelTick()
@@ -229,6 +244,8 @@ namespace Tomato
                 loginStartup.Initialize();
                 Save();
             }
+
+            PrepareWheelFeedback();
         }
 
         public void DurationChanged()
@@ -270,6 +287,7 @@ namespace Tomato
             Window.Settle();
             if (Window.Duration == 0)
             {
+                PrepareWheelFeedback();
                 Window.Error("先设置一点专注时间");
                 return;
             }
@@ -423,6 +441,7 @@ namespace Tomato
             Window.Show();
             ClampWindow();
             Window.Activate();
+            PrepareWheelFeedback();
         }
 
         public void ClampWindow()

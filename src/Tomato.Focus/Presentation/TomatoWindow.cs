@@ -176,6 +176,16 @@ namespace Tomato
                 };
             }
 
+            hours.IsVisibleChanged += delegate
+            {
+                if (controller != null)
+                    controller.PrepareWheelFeedback();
+            };
+            hours.IsEnabledChanged += delegate
+            {
+                if (controller != null)
+                    controller.PrepareWheelFeedback();
+            };
             status = Label("", 10.5, "#FFF0D2", false);
             Place(status, 0, 201, 250);
             statusTimer.Tick += delegate
@@ -572,6 +582,8 @@ namespace Tomato
         {
             picker.IsEnabled = true;
             SetAlarm(false);
+            if (controller != null)
+                controller.PrepareWheelFeedback();
         }
 
         void OpenMenu()

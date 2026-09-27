@@ -27,10 +27,10 @@
 
 ## 运行条件
 
-下载 [Windows 安装包](https://github.com/Dante9k/tommi/releases/download/v1.1.17/Tommi-1.1.17-Setup.exe) 或 [便携 ZIP](https://github.com/Dante9k/tommi/releases/download/v1.1.17/Tommi-1.1.17-win-x64.zip)。
+下载 [Windows 安装包](https://github.com/Dante9k/tommi/releases/download/v1.1.18/Tommi-1.1.18-Setup.exe) 或 [便携 ZIP](https://github.com/Dante9k/tommi/releases/download/v1.1.18/Tommi-1.1.18-win-x64.zip)。
 
 - Windows 10 / 11，x64，.NET Framework 4.8。
-- 图形安装器支持编辑完整安装路径，或点击「浏览」选择专用空文件夹。默认位置为 `%LOCALAPPDATA%/Programs/TomatoFocus/1.1.17`，也可安装到其他有写入权限的本地磁盘目录，支持中文和空格。路径框显示的就是实际安装位置，不会额外追加子目录。
+- 图形安装器支持编辑完整安装路径，或点击「浏览」选择专用空文件夹。默认位置为 `%LOCALAPPDATA%/Programs/TomatoFocus/1.1.18`，也可安装到其他有写入权限的本地磁盘目录，支持中文和空格。路径框显示的就是实际安装位置，不会额外追加子目录。
 - 已有空文件夹可直接安装；已有安装仅在所有文件与当前包完全一致时复用。其他非空目录不会被覆盖，升级时请选择新的版本目录。安装器只使用当前用户权限，无权写入时会提示重新选择位置。
 - 解压便携包，双击 `Tomato.exe`，无需安装或管理员权限。
 - 不需要联网，不包含账户登录或遥测。首次打开默认配置登录启动，可在 Tommi 设置中关闭；便携版同样适用。
@@ -57,7 +57,7 @@
 | --- | --- |
 | 正式桌面程序 | `build/Tomato.exe` |
 | 开发用验证工具 | `build/Tomato.Verify.exe` |
-| 可分发程序与双语文档 | `dist/Tommi-1.1.17-win-x64/` |
+| 可分发程序与双语文档 | `dist/Tommi-1.1.18-win-x64/` |
 | 便携 ZIP 与 SHA-256 | `dist/` |
 | Windows 图形安装包 | `dist/Tommi-<版本>-Setup.exe`，通过 `./package.ps1` 自动生成 |
 | 网站 ZIP | `dist/`，通过 `./scripts/build-website.ps1` 生成 |
@@ -79,9 +79,10 @@
 
 # 需要交互桌面，会显示约 17 秒动画，结束后自动退出
 ./build/Tomato.Verify.exe --smoke-test
+./build/Tomato.Verify.exe --wheel-smoke
 
 # 临时目录内验证自定义安装与快捷方式，不改动日常安装
-./build/Tomato.Verify.exe --installer-test ./dist/Tommi-1.1.17-Setup.exe
+./build/Tomato.Verify.exe --installer-test ./dist/Tommi-1.1.18-Setup.exe
 ```
 
 结果位于 `build/*-results.txt`。桌面流程验证使用独立状态文件，不操作日常计时状态。安装器检查覆盖中文／空格路径、新建／空目录、重复安装、非空目录保护、不可写位置及自定义目标快捷方式。自动流程调用应用动作，不替代实际鼠标和触屏验收。
