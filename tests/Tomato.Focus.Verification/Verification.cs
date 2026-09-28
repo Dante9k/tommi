@@ -213,6 +213,7 @@ namespace Tomato.Tests
                 lines.Add("PASS 抛物线、反弹与粒子回收");
                 EffectVerification.Run(lines);
                 WheelVerification.Run(lines);
+                LocalizationVerification.Run(lines);
                 var wheel = new TimeWheel(60, "秒");
                 int feedbackCount = 0;
                 wheel.DetentCrossed += delegate
@@ -439,13 +440,14 @@ namespace Tomato.Tests
                 root.UpdateLayout();
                 Art.Save(root, (int)Math.Ceiling(width), (int)Math.Ceiling(height), Output("tomato-alarm.png"));
                 Assert(FindNamed(root, "CountdownReadout").Visibility == Visibility.Hidden, "提醒隐藏倒计时");
+                LocalizationVerification.Render(controller);
                 var settings = new SettingsWindow(controller, Art.TomatoImage(112));
                 var settingsRoot = (FrameworkElement)settings.Content;
-                settingsRoot.Measure(new Size(352, double.PositiveInfinity));
-                var settingsSize = new Size(352, settingsRoot.DesiredSize.Height);
+                settingsRoot.Measure(new Size(settings.Width, double.PositiveInfinity));
+                var settingsSize = new Size(settings.Width, settingsRoot.DesiredSize.Height);
                 settingsRoot.Arrange(new Rect(new Point(), settingsSize));
                 settingsRoot.UpdateLayout();
-                Art.Save(settingsRoot, 352, (int)Math.Ceiling(settingsSize.Height), Output("settings-panel.png"));
+                Art.Save(settingsRoot, (int)settings.Width, (int)Math.Ceiling(settingsSize.Height), Output("settings-panel.png"));
                 var effects = (System.Windows.Controls.Primitives.ToggleButton)FindNamed(settingsRoot, "ToggleEffects");
                 bool wasEnabled = controller.EffectsSound;
                 effects.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));

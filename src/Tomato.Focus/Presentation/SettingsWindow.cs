@@ -13,8 +13,9 @@ namespace Tomato
     public sealed class SettingsWindow : Window
     {
         readonly AppController controller;
-        readonly ToggleButton sound, wheel, effects, haptics, startup;
-        readonly TextBlock startupStatus;
+        ToggleButton sound, wheel, effects, haptics, startup;
+        readonly BitmapSource art;
+        TextBlock startupStatus;
         bool closing;
         static readonly ControlTemplate ActionTemplate = (ControlTemplate)XamlReader.Parse(@"
 <ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='Button'>
@@ -45,8 +46,9 @@ namespace Tomato
         public SettingsWindow(AppController controller, BitmapSource art)
         {
             this.controller = controller;
-            Title = "Tommi · 专注偏好";
-            Width = 352;
+            this.art = art;
+            Title = Texts.Get("settings.title");
+            Width = 376;
             SizeToContent = SizeToContent.Height;
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
@@ -54,8 +56,37 @@ namespace Tomato
             Background = Brushes.Transparent;
             ShowInTaskbar = false;
             Topmost = true;
-            FontFamily = new FontFamily("Microsoft YaHei UI");
+            FontFamily = new FontFamily(Texts.FontFamily);
             UseLayoutRounding = true;
+            BuildContent();
+            Closing += delegate
+            {
+                closing = true;
+            };
+            Deactivated += delegate
+            {
+                if (!closing)
+                    Close();
+            };
+            PreviewKeyDown += delegate (object sender, KeyEventArgs e)
+            {
+                if (e.Key == Key.Escape)
+                {
+                    e.Handled = true;
+                    Close();
+                }
+            };
+        }
+
+        public void RefreshLanguage()
+        {
+            Title = Texts.Get("settings.title");
+            FontFamily = new FontFamily(Texts.FontFamily);
+            BuildContent();
+        }
+
+        void BuildContent()
+        {
             var body = new StackPanel
             {
                 Margin = new Thickness(22, 21, 22, 18)
@@ -90,7 +121,7 @@ namespace Tomato
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(56) });
             var brand = new StackPanel();
             brand.Children.Add(Text("Tommi", 23, "#F4F3E7", true));
-            brand.Children.Add(Text("专注，有自己的节奏。", 11, "#A7B7A2"));
+            brand.Children.Add(Text(Texts.Get("settings.tagline"), 11, "#A7B7A2"));
             header.Children.Add(brand);
             var icon = new Image
             {
@@ -103,36 +134,47 @@ namespace Tomato
             body.Children.Add(header);
             var status = new TextBlock
             {
-                Text = controller.IsThrowing ? "●  休息时间到了" : controller.Phase == TimerPhase.Running ? "●  专注进行中" : "●  准备好，开始一段专注",
+                Text = controller.IsThrowing ? Texts.Get("settings.breakStatus") : controller.Phase == TimerPhase.Running ? Texts.Get("settings.focusStatus") : Texts.Get("settings.readyStatus"),
                 FontSize = 11,
                 Foreground = Art.Brush("#C4D5A8"),
                 Margin = new Thickness(0, 0, 0, 17)
             };
             body.Children.Add(status);
-            body.Children.Add(Text("选择一段时间", 11, "#9BAE96"));
+            body.Children.Add(Text(Texts.Get("settings.duration"), 11, "#9BAE96"));
             var presets = new UniformGrid
             {
                 Columns = 3,
                 Margin = new Thickness(-3, 9, -3, 15)
             };
-            AddPreset(presets, "25", "专注", 1500, true);
-            AddPreset(presets, "05", "短歇", 300, false);
-            AddPreset(presets, "15", "长休", 900, false);
+            AddPreset(presets, "25", Texts.Get("preset.focus"), 1500, true);
+            AddPreset(presets, "05", Texts.Get("preset.short"), 300, false);
+            AddPreset(presets, "15", Texts.Get("preset.long"), 900, false);
             body.Children.Add(presets);
             Divider(body);
-            sound = AddToggle(body, "到时轻提醒", "ToggleSound", controller.ToggleSound);
-            wheel = AddToggle(body, "拨轮卡点声", "ToggleWheel", controller.ToggleWheelSound);
-            effects = AddToggle(body, "投掷与落地声", "ToggleEffects", controller.ToggleEffectsSound);
+            sound = AddToggle(body, Texts.Get("settings.chime"), "ToggleSound", controller.ToggleSound);
+            wheel = AddToggle(body, Texts.Get("settings.wheel"), "ToggleWheel", controller.ToggleWheelSound);
+            effects = AddToggle(body, Texts.Get("settings.effects"), "ToggleEffects", controller.ToggleEffectsSound);
             if (controller.HapticsAvailable)
-                haptics = AddToggle(body, "轻触反馈", "ToggleHaptics", controller.ToggleHaptics);
-            startup = AddToggle(body, "登录时启动 Tommi", "ToggleStartup", controller.ToggleLaunchAtLogin);
+                haptics = AddToggle(body, Texts.Get("settings.haptics"), "ToggleHaptics", controller.ToggleHaptics);
+            startup = AddToggle(body, Texts.Get("settings.startup"), "ToggleStartup", controller.ToggleLaunchAtLogin);
             startup.IsEnabled = controller.StartupAvailable;
             startupStatus = Text(controller.StartupStatus, 10, "#A7B7A2");
             startupStatus.TextWrapping = TextWrapping.Wrap;
             startupStatus.Margin = new Thickness(0, 0, 0, 8);
             body.Children.Add(startupStatus);
             Divider(body);
-            var preview = Action("试试番茄雨   ↗", "PreviewThrow", delegate
+            body.Children.Add(Text(Texts.Get("language.label"), 11, "#9BAE96"));
+            var languages = new UniformGrid
+            {
+                Columns = 3,
+                Margin = new Thickness(-3, 8, -3, 12)
+            };
+            AddLanguage(languages, Texts.Get("language.system"), "system");
+            AddLanguage(languages, "English", "en");
+            AddLanguage(languages, "简体中文", "zh-CN");
+            body.Children.Add(languages);
+            Divider(body);
+            var preview = Action(Texts.Get("settings.preview"), "PreviewThrow", delegate
             {
                 Close();
                 controller.Preview();
@@ -141,9 +183,9 @@ namespace Tomato
             preview.Margin = new Thickness(0, 4, 0, 9);
             preview.IsEnabled = controller.Phase != TimerPhase.Running;
             if (!preview.IsEnabled)
-                preview.ToolTip = "结束当前专注后可试听";
+                preview.ToolTip = Texts.Get("settings.previewBusy");
             body.Children.Add(preview);
-            var show = Action("回到番茄", "ShowTomato", delegate
+            var show = Action(Texts.Get("settings.show"), "ShowTomato", delegate
             {
                 Close();
                 controller.Show();
@@ -158,7 +200,7 @@ namespace Tomato
             };
             footer.ColumnDefinitions.Add(new ColumnDefinition());
             footer.ColumnDefinitions.Add(new ColumnDefinition());
-            var cancel = Action(controller.IsThrowing ? "结束提醒" : "取消专注", "CancelFocus", delegate
+            var cancel = Action(controller.IsThrowing ? Texts.Get("settings.dismiss") : Texts.Get("settings.cancel"), "CancelFocus", delegate
             {
                 Close();
                 controller.Cancel();
@@ -166,7 +208,7 @@ namespace Tomato
             cancel.IsEnabled = controller.Phase != TimerPhase.Editing || controller.IsThrowing;
             cancel.Background = Brushes.Transparent;
             cancel.Foreground = Art.Brush("#B5C0AF");
-            var quit = Action("退出Tommi", "QuitTomato", delegate
+            var quit = Action(Texts.Get("settings.quit"), "QuitTomato", delegate
             {
                 Close();
                 controller.Quit();
@@ -178,23 +220,23 @@ namespace Tomato
             footer.Children.Add(quit);
             body.Children.Add(footer);
             RefreshToggles();
-            Closing += delegate
+        }
+
+        void AddLanguage(Panel parent, string label, string language)
+        {
+            var button = Action(label, language == "en" ? "LanguageEnglish" : language == "zh-CN" ? "LanguageChinese" : "LanguageSystem", delegate
             {
-                closing = true;
-            };
-            Deactivated += delegate
+                controller.SetLanguage(language);
+            });
+            button.Height = 34;
+            button.Margin = new Thickness(3, 0, 3, 0);
+            if (controller.Language == language)
             {
-                if (!closing)
-                    Close();
-            };
-            PreviewKeyDown += delegate (object sender, KeyEventArgs e)
-            {
-                if (e.Key == Key.Escape)
-                {
-                    e.Handled = true;
-                    Close();
-                }
-            };
+                button.Background = Art.Brush("#D7DFBF");
+                button.Foreground = Art.Brush("#243B2B");
+            }
+
+            parent.Children.Add(button);
         }
 
         void AddPreset(Panel parent, string value, string label, int seconds, bool primary)
@@ -204,10 +246,10 @@ namespace Tomato
             number.FontFamily = new FontFamily("Segoe UI");
             number.TextAlignment = TextAlignment.Center;
             content.Children.Add(number);
-            var caption = Text(label + " · 分钟", 10, primary ? "#F9E0CF" : "#A6B6A0");
+            var caption = Text(label + Texts.Get("preset.suffix"), 10, primary ? "#F9E0CF" : "#A6B6A0");
             caption.TextAlignment = TextAlignment.Center;
             content.Children.Add(caption);
-            var button = Action(label + " " + seconds / 60 + " 分钟", "Preset" + seconds, delegate
+            var button = Action(label + " " + seconds / 60 + Texts.Get("preset.accessibleSuffix"), "Preset" + seconds, delegate
             {
                 Close();
                 controller.Preset(seconds);
@@ -227,7 +269,7 @@ namespace Tomato
             {
                 Height = 44
             };
-            row.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = Art.Brush("#E1E7D9"), VerticalAlignment = VerticalAlignment.Center });
+            row.Children.Add(new TextBlock { Text = label, FontSize = 12, Foreground = Art.Brush("#E1E7D9"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 54, 0), TextWrapping = TextWrapping.Wrap });
             var toggle = new ToggleButton
             {
                 Name = name,

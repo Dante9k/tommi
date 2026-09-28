@@ -42,7 +42,7 @@ namespace Tomato
         public TomatoWindow(AppController controller, BitmapSource art)
         {
             this.controller = controller;
-            Title = "Tommi · 番茄钟";
+            Title = Texts.Get("app.title");
             Width = 220;
             Height = 220;
             WindowStyle = WindowStyle.None;
@@ -74,7 +74,7 @@ namespace Tomato
                 IsHitTestVisible = false
             };
             canvas.Children.Add(fruit);
-            ToolTip = "双击绿蒂开始 · 拖动果身移动 · 专注时摇晃取消";
+            ToolTip = Texts.Get("widget.tooltip");
             glass = new Border
             {
                 Name = "TimeEditorFrame",
@@ -113,14 +113,14 @@ namespace Tomato
             {
                 Orientation = Orientation.Horizontal
             };
-            hours = new TimeWheel(24, "小时");
-            minutes = new TimeWheel(60, "分钟");
-            seconds = new TimeWheel(60, "秒");
+            hours = new TimeWheel(24, Texts.Get("unit.hours"));
+            minutes = new TimeWheel(60, Texts.Get("unit.minutes"));
+            seconds = new TimeWheel(60, Texts.Get("unit.seconds"));
             picker.Children.Add(hours);
             picker.Children.Add(minutes);
             picker.Children.Add(seconds);
             Place(picker, 53, 100);
-            countdownCaption = Label("剩余专注时间", 10, "#E6F6D9BF", false);
+            countdownCaption = Label(Texts.Get("countdown.caption"), 10, "#E6F6D9BF", false);
             countdownCaption.Visibility = Visibility.Hidden;
             Place(countdownCaption, 38, 110, 174);
             countdown = new StackPanel
@@ -205,9 +205,9 @@ namespace Tomato
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
-                ToolTip = "预设、试听与退出"
+                ToolTip = Texts.Get("menu.tooltip")
             };
-            AutomationProperties.SetName(menu, "菜单");
+            AutomationProperties.SetName(menu, Texts.Get("menu.name"));
             menu.Click += delegate
             {
                 OpenMenu();
@@ -266,7 +266,7 @@ namespace Tomato
             {
                 Text = text,
                 FontSize = size,
-                FontFamily = new FontFamily("Microsoft YaHei UI"),
+                FontFamily = new FontFamily(Texts.FontFamily),
                 FontWeight = bold ? FontWeights.SemiBold : FontWeights.Normal,
                 Foreground = Art.Brush(color),
                 TextAlignment = TextAlignment.Center,
@@ -317,15 +317,15 @@ namespace Tomato
             picker.Visibility = alarm ? Visibility.Hidden : Visibility.Visible;
             glass.Visibility = alarm ? Visibility.Hidden : Visibility.Visible;
             menu.Visibility = Visibility.Visible;
-            status.Text = alarm ? "拖动或双击，结束提醒" : "";
+            status.Text = alarm ? Texts.Get("alarm.dismiss") : "";
             status.Visibility = Visibility.Visible;
             Canvas.SetTop(status, alarm ? 191 : 201);
             if (alarm)
             {
-                var title = Label("时间到了", 25, "#FFF4DE", true);
+                var title = Label(Texts.Get("alarm.title"), 25, "#FFF4DE", true);
                 title.Name = "AlarmTitle";
                 Place(title, 0, 137, 250);
-                var subtitle = Label("休息一下", 11, "#FFDBBC", false);
+                var subtitle = Label(Texts.Get("alarm.subtitle"), 11, "#FFDBBC", false);
                 subtitle.Name = "AlarmSubtitle";
                 Place(subtitle, 0, 176, 250);
             }
@@ -410,7 +410,7 @@ namespace Tomato
                 ResetGesture();
                 controller.ClampWindow();
                 controller.Cancel();
-                Error("已取消专注");
+                Error(Texts.Get("timer.cancelled"));
             }
         }
 
@@ -437,7 +437,7 @@ namespace Tomato
             {
                 ResetGesture();
                 statusTimer.Stop();
-                status.Text = "专注中 · 摇晃取消";
+                status.Text = Texts.Get("timer.running");
             }
 
             picker.IsEnabled = false;
@@ -462,7 +462,7 @@ namespace Tomato
             foreach (var separator in countdownSeparators)
                 separator.FontSize = showHours ? 24 : 32;
             Canvas.SetLeft(countdown, showHours ? 63 : 73);
-            AutomationProperties.SetName(countdown, "剩余专注时间 " + countdownDigits[0].Text + " 时 " + countdownDigits[1].Text + " 分 " + countdownDigits[2].Text + " 秒");
+            AutomationProperties.SetName(countdown, Texts.Format("countdown.accessible", countdownDigits[0].Text, countdownDigits[1].Text, countdownDigits[2].Text));
         }
 
         // Persist the expanded position, so restoring a miniature never shifts it again.
@@ -576,6 +576,31 @@ namespace Tomato
             shake.Reset(0, 0);
             if (IsMouseCaptured)
                 ReleaseMouseCapture();
+        }
+
+        public void RefreshLanguage()
+        {
+            Title = Texts.Get("app.title");
+            ToolTip = Texts.Get("widget.tooltip");
+            hours.SetUnit(Texts.Get("unit.hours"));
+            minutes.SetUnit(Texts.Get("unit.minutes"));
+            seconds.SetUnit(Texts.Get("unit.seconds"));
+            countdownCaption.Text = Texts.Get("countdown.caption");
+            menu.ToolTip = Texts.Get("menu.tooltip");
+            AutomationProperties.SetName(menu, Texts.Get("menu.name"));
+            AutomationProperties.SetName(countdown, Texts.Format("countdown.accessible", countdownDigits[0].Text, countdownDigits[1].Text, countdownDigits[2].Text));
+            status.Text = AlarmMode ? Texts.Get("alarm.dismiss") : controller.Phase == TimerPhase.Running ? Texts.Get("timer.running") : "";
+            foreach (var child in canvas.Children)
+            {
+                var text = child as TextBlock;
+                if (text == null)
+                    continue;
+                text.FontFamily = new FontFamily(Texts.FontFamily);
+                if (text.Name == "AlarmTitle")
+                    text.Text = Texts.Get("alarm.title");
+                if (text.Name == "AlarmSubtitle")
+                    text.Text = Texts.Get("alarm.subtitle");
+            }
         }
 
         public void ShowEditor()

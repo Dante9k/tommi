@@ -37,6 +37,27 @@ namespace Tomato
         public SettingsWindow Settings { get; private set; }
         public bool Exiting { get; private set; }
 
+        public string Language
+        {
+            get
+            {
+                return Texts.Normalize(preferences.Language);
+            }
+        }
+
+        public void SetLanguage(string language)
+        {
+            preferences.Language = Texts.Normalize(language);
+            Texts.SetLanguage(preferences.Language);
+            Window.RefreshLanguage();
+            if (overlay != null)
+                overlay.Title = Texts.Get("throw.title");
+            if (Settings != null)
+                Settings.RefreshLanguage();
+            UpdateTray();
+            Save();
+        }
+
         public bool Sound
         {
             get
@@ -187,7 +208,7 @@ namespace Tomato
         {
             get
             {
-                return loginStartup != null && loginStartup.Error != null ? loginStartup.Error : "Windows“启动应用”的设置也会生效。";
+                return loginStartup != null && loginStartup.Error != null ? Texts.Get("startup.error") : Texts.Get("startup.system");
             }
         }
 
@@ -206,6 +227,7 @@ namespace Tomato
             this.app = app;
             store = new StateStore(dataPath);
             preferences = store.Read();
+            Texts.SetLanguage(preferences.Language);
             if (startupRegistration != null)
                 loginStartup = new LoginStartup(preferences, startupRegistration, System.Reflection.Assembly.GetExecutingAssembly().Location);
             // Resolve the legacy sound preference once, before independently toggling either sound.
@@ -288,7 +310,7 @@ namespace Tomato
             if (Window.Duration == 0)
             {
                 PrepareWheelFeedback();
-                Window.Error("先设置一点专注时间");
+                Window.Error(Texts.Get("timer.empty"));
                 return;
             }
 
@@ -327,7 +349,7 @@ namespace Tomato
         {
             if (clock.Phase == TimerPhase.Running)
             {
-                Window.Error("请先取消当前计时，再预览");
+                Window.Error(Texts.Get("timer.previewBusy"));
                 return;
             }
 
@@ -468,7 +490,7 @@ namespace Tomato
             preferences.Left = IsThrowing ? editorLeft : Window.ExpandedLeft;
             preferences.Top = IsThrowing ? editorTop : Window.Top;
             if (!store.Write(preferences) && tray != null)
-                tray.Text = "Tommi · 设置保存失败，本次计时继续";
+                tray.Text = Texts.Get("tray.saveFailed");
         }
 
         void CreateTray()
@@ -498,7 +520,7 @@ namespace Tomato
             }
 
             tray.Visible = true;
-            tray.Text = "Tommi · 番茄钟";
+            tray.Text = Texts.Get("app.title");
             tray.MouseUp += delegate (object sender, Forms.MouseEventArgs e)
             {
                 if (e.Button == Forms.MouseButtons.Right)
@@ -550,7 +572,7 @@ namespace Tomato
         void UpdateTray()
         {
             if (tray != null)
-                tray.Text = clock.Phase == TimerPhase.Running ? "Tommi · 专注剩余 " + Format(clock.Remaining(DateTime.UtcNow)) : IsThrowing ? "Tommi · 时间到了，拖动番茄结束提醒" : "Tommi · 番茄钟";
+                tray.Text = clock.Phase == TimerPhase.Running ? Texts.Get("tray.running") + Format(clock.Remaining(DateTime.UtcNow)) : IsThrowing ? Texts.Get("tray.alarm") : Texts.Get("app.title");
         }
 
         IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

@@ -54,8 +54,7 @@ namespace Tomato
             focusPen.Freeze();
             Focusable = true;
             Cursor = Cursors.Hand;
-            AutomationProperties.SetName(this, unit);
-            ToolTip = "滚动或上下拖动调整" + unit + "；方向键微调，也可直接输入数字";
+            SetUnit(unit);
             Unloaded += delegate
             {
                 Settle();
@@ -70,6 +69,13 @@ namespace Tomato
                 if (!IsEnabled)
                     Settle();
             };
+        }
+
+        public void SetUnit(string unit)
+        {
+            Unit = unit;
+            AutomationProperties.SetName(this, unit);
+            ToolTip = Texts.Format("wheel.tooltip", unit);
         }
 
         public int Value
@@ -415,7 +421,7 @@ namespace Tomato
             public void SetValue(double value)
             {
                 if (!wheel.IsEnabled)
-                    throw new InvalidOperationException("计时过程中不能编辑时间");
+                    throw new InvalidOperationException(Texts.Get("wheel.locked"));
                 if (value < 0 || value >= wheel.Limit)
                     throw new ArgumentOutOfRangeException("value");
                 wheel.SetFromInput((int)value);
