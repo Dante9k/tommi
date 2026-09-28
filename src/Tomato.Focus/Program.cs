@@ -11,13 +11,15 @@ namespace Tomato
         [STAThread]
         private static int Main(string[] args)
         {
+            string statePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TomatoFocus", "state.xml");
+            Texts.SetLanguage(new StateStore(statePath).Read().Language);
             bool firstInstance;
             using (var mutex = new Mutex(true, "Local\\TomatoFocus.Desktop", out firstInstance))
             {
                 if (!firstInstance)
                 {
                     if (Array.IndexOf(args, "--startup") < 0)
-                        MessageBox.Show("Tommi 已经在运行。请双击任务栏右下角的番茄图标。", "Tommi");
+                        MessageBox.Show(Texts.Get("app.alreadyRunning"), "Tommi");
                     return 0;
                 }
 
@@ -29,14 +31,13 @@ namespace Tomato
                 application.DispatcherUnhandledException += delegate (object sender, DispatcherUnhandledExceptionEventArgs e)
                 {
                     AppController.Log(e.Exception);
-                    MessageBox.Show("Tommi遇到问题，已记录错误。请重新打开软件。", "Tommi");
+                    MessageBox.Show(Texts.Get("app.error"), "Tommi");
                     if (controller != null)
                         controller.Quit();
                     e.Handled = true;
                 };
                 try
                 {
-                    string statePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TomatoFocus", "state.xml");
                     controller = new AppController(application, statePath, new RegistryStartupRegistration());
                     controller.Launch(true);
                     application.Run();
@@ -45,7 +46,7 @@ namespace Tomato
                 catch (Exception exception)
                 {
                     AppController.Log(exception);
-                    MessageBox.Show("启动失败：" + exception.Message, "Tommi");
+                    MessageBox.Show(Texts.Get("app.startFailed") + exception.Message, "Tommi");
                     return 1;
                 }
             }

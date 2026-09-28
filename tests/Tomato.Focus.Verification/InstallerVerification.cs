@@ -191,12 +191,20 @@ namespace Tomato.Tests
                     var button = (Button)form.Controls.Find("InstallButton", true).Single();
                     Require(!path.ReadOnly && browse.Enabled, "Destination cannot be changed.");
                     path.Text = selected;
+                    var english = (Button)form.Controls.Find("LanguageEnglish", true).Single();
+                    var chinese = (Button)form.Controls.Find("LanguageChinese", true).Single();
+                    typeof(Button).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(english, new object[] { EventArgs.Empty });
+                    Require(form.Text == "Tommi Setup" && button.Text == "Install" && path.Text == selected && browse.Text == "Browse…", "English installer switch changed destination or missed labels.");
+                    typeof(Button).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(chinese, new object[] { EventArgs.Empty });
+                    Require(button.Text == "开始安装" && path.Text == selected, "Chinese installer switch changed destination.");
+                    typeof(Button).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(english, new object[] { EventArgs.Empty });
                     typeof(Button).GetMethod("OnClick", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(button, new object[] { EventArgs.Empty });
                     Require(errorMessage == null, "Install-button action failed: " + errorMessage);
                     Require(received == selected, "Install action ignored edited destination.");
-                    Require(path.ReadOnly && !browse.Enabled && button.Text == "完成", "Successful form state is incorrect.");
+                    Require(path.ReadOnly && !browse.Enabled && button.Text == "Done", "Successful form state is incorrect.");
                 }
 
+                log.AppendLine("PASS English/Chinese installer switching preserves destination; English installation completion verified");
                 VerifyFiles(bytes, selected);
                 log.AppendLine("PASS actual install-button handler uses edited path; shortcuts and backups verified in isolation");
                 File.WriteAllText(report, log.ToString());

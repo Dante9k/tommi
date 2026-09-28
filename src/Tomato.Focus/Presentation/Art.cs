@@ -47,7 +47,7 @@ namespace Tomato
                         dc.DrawImage(source, new Rect(22, 18, 396, 396));
                     }
                     else
-                        throw new InvalidOperationException("缺少番茄图像资源。");
+                        throw new InvalidOperationException(Texts.Get("art.missing"));
                 }
 
                 dc.Pop();

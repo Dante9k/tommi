@@ -1,3 +1,4 @@
+using Tomato;
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -11,10 +12,10 @@ using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Windows.Forms;
 
-[assembly: AssemblyTitle("Tommi · 安装程序")]
-[assembly: AssemblyDescription("Tommi Windows 安装程序")]
+[assembly: AssemblyTitle("Tommi · Setup")]
+[assembly: AssemblyDescription("Tommi Windows Setup")]
 [assembly: AssemblyProduct("Tommi")]
-[assembly: AssemblyCopyright("Tommi · 保留所有权利")]
+[assembly: AssemblyCopyright("Tommi · All rights reserved")]
 
 internal static class Setup
 {
@@ -33,11 +34,11 @@ internal static class Setup
         using (var sha = SHA256.Create())
         {
             var hash = BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "");
-            if (!String.Equals(hash, ResourceText("Payload.sha256"), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("安装包校验失败，请重新下载。");
+            if (!String.Equals(hash, ResourceText("Payload.sha256"), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException(Texts.Get("setup.checksum"));
         }
         using (var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read))
         {
-            if (!zip.Entries.Select(e => e.FullName).OrderBy(n => n).SequenceEqual(Files.OrderBy(n => n))) throw new InvalidDataException("安装包文件清单无效。");
+            if (!zip.Entries.Select(e => e.FullName).OrderBy(n => n).SequenceEqual(Files.OrderBy(n => n))) throw new InvalidDataException(Texts.Get("setup.files"));
             // Read every entry to catch truncated compressed data before changing the installation.
             foreach (var entry in zip.Entries) using (var stream = entry.Open()) { stream.CopyTo(Stream.Null); }
         }
@@ -49,9 +50,15 @@ internal static class Setup
     {
         try
         {
+            if (args.Length >= 2 && args[0] == "--language")
+            {
+                if (args[1] != "en" && args[1] != "zh-CN") return 2;
+                Texts.SetLanguage(args[1]);
+                args = args.Skip(2).ToArray();
+            }
             byte[] bytes = Payload();
             string version = ResourceText("Version.txt");
-            if (!System.Text.RegularExpressions.Regex.IsMatch(version, @"^\d+\.\d+\.\d+$")) throw new InvalidDataException("版本信息无效。");
+            if (!System.Text.RegularExpressions.Regex.IsMatch(version, @"^\d+\.\d+\.\d+$")) throw new InvalidDataException(Texts.Get("setup.versionInvalid"));
             if (args.Length == 1 && args[0] == "--verify-payload") return 0;
             bool render = args.Length == 2 && args[0] == "--render-preview";
             if (args.Length != 0 && !render) return 2;
@@ -73,7 +80,7 @@ internal static class Setup
             }
             return 0;
         }
-        catch (Exception ex) { if (args.Length == 0) MessageBox.Show(ex.Message, "Tommi安装程序", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
+        catch (Exception ex) { if (args.Length == 0) MessageBox.Show(ex.Message, Texts.Get("setup.title"), MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
     }
 
     private static void CreateHandles(Control control)
@@ -89,7 +96,7 @@ internal static class Setup
         form = CreateInstallForm(version,
             delegate (string target, bool desktop) { Install(bytes, target, desktop); },
             delegate { return Process.GetProcessesByName("Tomato").Length != 0; },
-            delegate (Exception error) { MessageBox.Show(form, error.GetBaseException().Message, "安装未完成", MessageBoxButtons.OK, MessageBoxIcon.Warning); });
+            delegate (Exception error) { MessageBox.Show(form, error.GetBaseException().Message, Texts.Get("setup.failed"), MessageBoxButtons.OK, MessageBoxIcon.Warning); });
         return form;
     }
 
@@ -100,8 +107,8 @@ internal static class Setup
         var red = Color.FromArgb(207, 59, 40);
         var form = new Form
         {
-            Text = "Tommi安装程序",
-            Font = new Font("Microsoft YaHei UI", 10),
+            Text = Texts.Get("setup.title"),
+            Font = new Font("Segoe UI", 10),
             AutoScaleDimensions = new SizeF(96, 96),
             AutoScaleMode = AutoScaleMode.Dpi,
             ClientSize = new Size(760, 500),
@@ -119,21 +126,22 @@ internal static class Setup
         side.Controls.Add(logo);
         side.Controls.Add(TextLabel("Tommi", 36, 221, 200, 54, 26, ink, true));
         side.Controls.Add(TextLabel("FOCUS TIMER", 43, 279, 190, 24, 10, muted));
-        side.Controls.Add(TextLabel("一颗番茄，\n一段完整的专注。", 45, 331, 176, 66, 12, muted));
+        var tagline = TextLabel(Texts.Get("setup.tagline"), 45, 331, 176, 66, 12, muted);
+        side.Controls.Add(tagline);
         side.Controls.Add(TextLabel("WINDOWS 10 / 11 · x64", 45, 452, 195, 22, 9, muted));
         form.Controls.Add(side);
-        var title = TextLabel("欢迎安装Tommi", 292, 49, 425, 46, 23, ink, true);
-        var description = TextLabel("把时间，留给喜欢的事。\n离线使用，无需登录。", 295, 108, 410, 62, 11, muted);
-        var versionLabel = TextLabel("版本 " + version + "    /    桌面番茄钟", 295, 182, 410, 28, 10, muted);
+        var title = TextLabel(Texts.Get("setup.welcome"), 292, 49, 425, 46, 23, ink, true);
+        var description = TextLabel(Texts.Get("setup.description"), 295, 108, 410, 62, 11, muted);
+        var versionLabel = TextLabel(Texts.Get("setup.versionPrefix") + version + Texts.Get("setup.versionSuffix"), 295, 182, 410, 28, 10, muted);
         var separator = new Panel { Location = new Point(296, 227), Size = new Size(412, 1), BackColor = Color.FromArgb(232, 234, 238) };
-        var pathLabel = TextLabel("安装位置", 295, 249, 410, 24, 10, ink, true);
+        var pathLabel = TextLabel(Texts.Get("setup.location"), 295, 249, 410, 24, 10, ink, true);
         string target = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "TomatoFocus", version);
-        var path = new TextBox { Name = "InstallationPath", Text = target, AutoSize = false, Font = new Font("Microsoft YaHei UI", 9), Location = new Point(297, 282), Size = new Size(306, 32), BackColor = Color.FromArgb(248, 249, 251), BorderStyle = BorderStyle.FixedSingle, AccessibleName = "完整安装路径", TabIndex = 0 };
-        var browse = new Button { Name = "BrowseFolder", Text = "浏览…", Location = new Point(617, 282), Size = new Size(91, 32), BackColor = Color.White, FlatStyle = FlatStyle.Flat, TabIndex = 1, AccessibleName = "选择安装文件夹" };
+        var path = new TextBox { Name = "InstallationPath", Text = target, AutoSize = false, Font = new Font("Segoe UI", 9), Location = new Point(297, 282), Size = new Size(306, 32), BackColor = Color.FromArgb(248, 249, 251), BorderStyle = BorderStyle.FixedSingle, AccessibleName = Texts.Get("setup.path"), TabIndex = 0 };
+        var browse = new Button { Name = "BrowseFolder", Text = Texts.Get("setup.browse"), Location = new Point(617, 282), Size = new Size(91, 32), BackColor = Color.White, FlatStyle = FlatStyle.Flat, TabIndex = 1, AccessibleName = Texts.Get("setup.folder") };
         browse.FlatAppearance.BorderColor = Color.FromArgb(220, 225, 232);
         browse.Click += delegate
         {
-            using (var dialog = new FolderBrowserDialog { Description = "选择用于Tommi的空文件夹，也可以新建文件夹。", ShowNewFolderButton = true })
+            using (var dialog = new FolderBrowserDialog { Description = Texts.Get("setup.folderHint"), ShowNewFolderButton = true })
             {
                 try
                 {
@@ -148,16 +156,42 @@ internal static class Setup
                 if (dialog.ShowDialog(form) == DialogResult.OK) { path.Text = dialog.SelectedPath; path.Focus(); }
             }
         };
-        var pathHint = TextLabel("可输入完整路径，或选择一个专用空文件夹。", 295, 320, 415, 23, 9, muted);
-        var desktop = new CheckBox { Text = "创建桌面快捷方式", Checked = true, Location = new Point(296, 352), AutoSize = true, TabIndex = 2 };
-        var status = TextLabel("首次打开默认随登录启动，可在 Tommi 设置中关闭。", 295, 387, 415, 35, 9, muted);
-        var install = new Button { Name = "InstallButton", Text = "开始安装", Location = new Point(558, 431), Size = new Size(150, 43), BackColor = red, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, TabIndex = 3 };
+        var pathHint = TextLabel(Texts.Get("setup.pathHint"), 295, 320, 415, 23, 9, muted);
+        var desktop = new CheckBox { Text = Texts.Get("setup.desktop"), Checked = true, Location = new Point(296, 352), AutoSize = true, TabIndex = 2 };
+        var status = TextLabel(Texts.Get("setup.startup"), 295, 387, 415, 35, 9, muted);
+        var install = new Button { Name = "InstallButton", Text = Texts.Get("setup.install"), Location = new Point(558, 431), Size = new Size(150, 43), BackColor = red, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, TabIndex = 3 };
         install.FlatAppearance.BorderSize = 0;
         install.FlatAppearance.MouseOverBackColor = Color.FromArgb(181, 47, 31);
-        var cancel = new Button { Text = "取消", Location = new Point(445, 431), Size = new Size(95, 43), BackColor = Color.White, FlatStyle = FlatStyle.Flat, TabIndex = 4 };
+        var cancel = new Button { Text = Texts.Get("setup.cancel"), Location = new Point(445, 431), Size = new Size(95, 43), BackColor = Color.White, FlatStyle = FlatStyle.Flat, TabIndex = 4 };
         cancel.FlatAppearance.BorderColor = Color.FromArgb(220, 225, 232);
         cancel.Click += delegate { form.Close(); };
         bool installed = false;
+        var english = new Button { Name = "LanguageEnglish", Text = "English", Location = new Point(534, 12), Size = new Size(82, 27), FlatStyle = FlatStyle.Flat, TabIndex = 5 };
+        var chinese = new Button { Name = "LanguageChinese", Text = "简体中文", Location = new Point(622, 12), Size = new Size(86, 27), FlatStyle = FlatStyle.Flat, TabIndex = 6 };
+        english.FlatAppearance.BorderSize = chinese.FlatAppearance.BorderSize = 0;
+        Action refreshLanguage = delegate
+        {
+            form.Text = Texts.Get("setup.title");
+            tagline.Text = Texts.Get("setup.tagline");
+            title.Text = Texts.Get(installed ? "setup.ready" : "setup.welcome");
+            description.Text = Texts.Get(installed ? "setup.open" : "setup.description");
+            versionLabel.Text = Texts.Get("setup.versionPrefix") + version + Texts.Get("setup.versionSuffix");
+            pathLabel.Text = Texts.Get("setup.location");
+            path.AccessibleName = Texts.Get("setup.path");
+            browse.Text = Texts.Get("setup.browse");
+            browse.AccessibleName = Texts.Get("setup.folder");
+            pathHint.Text = Texts.Get("setup.pathHint");
+            desktop.Text = Texts.Get("setup.desktop");
+            status.Text = Texts.Get(installed ? "setup.remove" : "setup.startup");
+            install.Text = Texts.Get(installed ? "setup.done" : "setup.install");
+            cancel.Text = Texts.Get("setup.cancel");
+            english.BackColor = Texts.Chinese ? Color.White : Color.FromArgb(255, 230, 220);
+            chinese.BackColor = Texts.Chinese ? Color.FromArgb(255, 230, 220) : Color.White;
+        };
+        english.Click += delegate { Texts.SetLanguage("en"); refreshLanguage(); };
+        chinese.Click += delegate { Texts.SetLanguage("zh-CN"); refreshLanguage(); };
+        form.Controls.AddRange(new Control[] { english, chinese });
+        refreshLanguage();
         install.Click += delegate
         {
             if (installed) { form.Close(); return; }
@@ -166,19 +200,19 @@ internal static class Setup
             browse.Enabled = false;
             try
             {
-                if (isRunning()) throw new IOException("请先从托盘退出Tommi，再点击安装。安装程序不会强制关闭应用。");
+                if (isRunning()) throw new IOException(Texts.Get("setup.running"));
                 target = NormalizeTarget(path.Text);
                 installAction(target, desktop.Checked);
                 path.Text = target;
                 installed = true;
-                title.Text = "Tommi已准备就绪";
-                description.Text = "从开始菜单打开「Tommi」，\n开始你的下一段专注。";
-                install.Text = "完成";
+                title.Text = Texts.Get("setup.ready");
+                description.Text = Texts.Get("setup.open");
+                install.Text = Texts.Get("setup.done");
                 desktop.Enabled = false;
                 cancel.Visible = false;
-                status.Text = "卸载前关闭登录启动，再退出并删除安装文件夹。";
+                status.Text = Texts.Get("setup.remove");
             }
-            catch (UnauthorizedAccessException) { reportError(new IOException("无法写入所选位置。请使用“浏览”选择有写入权限的文件夹。")); }
+            catch (UnauthorizedAccessException) { reportError(new IOException(Texts.Get("setup.denied"))); }
             catch (Exception ex) { reportError(ex); }
             finally { install.Enabled = true; path.ReadOnly = installed; browse.Enabled = !installed; }
         };
@@ -192,7 +226,7 @@ internal static class Setup
     private static Label TextLabel(string text, int x, int y, int width, int height, float size, Color color, bool bold = false)
     {
         return new Label { Text = text, Location = new Point(x, y), Size = new Size(width, height),
-            Font = new Font("Microsoft YaHei UI", size, bold ? FontStyle.Bold : FontStyle.Regular),
+            Font = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular),
             ForeColor = color, BackColor = Color.Transparent };
     }
 
@@ -208,17 +242,17 @@ internal static class Setup
     {
         string target = (input ?? "").Trim();
         if (!System.Text.RegularExpressions.Regex.IsMatch(target, @"^[A-Za-z]:[\\/]"))
-            throw new IOException("请输入本地磁盘上的完整路径，例如 D:\\Apps\\TomatoFocus。");
+            throw new IOException(Texts.Get("setup.fullPath"));
         foreach (var part in target.Substring(3).Split(new[] { '\\', '/' }, StringSplitOptions.RemoveEmptyEntries))
         {
             if (part.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || part.EndsWith(".") || part.EndsWith(" ") ||
                 System.Text.RegularExpressions.Regex.IsMatch(part, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\.|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-                throw new IOException("安装路径包含无效的文件夹名称，请重新选择。");
+                throw new IOException(Texts.Get("setup.invalidName"));
         }
         target = Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        if (target.Length <= 3) throw new IOException("请在磁盘内选择一个专用文件夹，不要直接安装到磁盘根目录。");
-        if (target.Length + 1 + Files.Max(name => name.Length) >= 260) throw new IOException("安装路径太长，请选择层级更少的文件夹。");
-        if (File.Exists(target)) throw new IOException("所选路径是一个文件，请选择文件夹。");
+        if (target.Length <= 3) throw new IOException(Texts.Get("setup.root"));
+        if (target.Length + 1 + Files.Max(name => name.Length) >= 260) throw new IOException(Texts.Get("setup.pathLong"));
+        if (File.Exists(target)) throw new IOException(Texts.Get("setup.isFile"));
         EnsureOrdinaryDirectories(target);
         return target;
     }
@@ -227,8 +261,8 @@ internal static class Setup
     {
         for (var directory = new DirectoryInfo(target); directory != null; directory = directory.Parent)
         {
-            if (File.Exists(directory.FullName)) throw new IOException("安装路径中有同名文件，请重新选择文件夹。");
-            if (directory.Exists && (directory.Attributes & FileAttributes.ReparsePoint) != 0) throw new IOException("安装目录包含目录链接，请选择普通文件夹。");
+            if (File.Exists(directory.FullName)) throw new IOException(Texts.Get("setup.parentFile"));
+            if (directory.Exists && (directory.Attributes & FileAttributes.ReparsePoint) != 0) throw new IOException(Texts.Get("setup.directoryLink"));
         }
     }
 
@@ -239,15 +273,15 @@ internal static class Setup
         if (Directory.Exists(target) && Directory.EnumerateFileSystemEntries(target).Any())
         {
             if (!Directory.GetFiles(target).Select(Path.GetFileName).OrderBy(n => n).SequenceEqual(Files.OrderBy(n => n)) || Directory.GetDirectories(target).Length != 0)
-                throw new IOException("所选文件夹不是空的。原文件已保留，请新建文件夹，或选择与当前安装包完全相同的版本目录。");
+                throw new IOException(Texts.Get("setup.nonempty"));
             if (Directory.GetFiles(target).Any(file => (File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0))
-                throw new IOException("所选文件夹包含文件链接，请使用专用空文件夹。");
+                throw new IOException(Texts.Get("setup.fileLink"));
             using (var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read))
             foreach (var entry in zip.Entries)
                 using (var source = entry.Open())
                 using (var existing = File.OpenRead(Path.Combine(target, entry.FullName)))
                 using (var sha = SHA256.Create())
-                    if (!sha.ComputeHash(source).SequenceEqual(sha.ComputeHash(existing))) throw new IOException("现有文件与安装包不同，原文件已保留。请为新版选择其他文件夹。");
+                    if (!sha.ComputeHash(source).SequenceEqual(sha.ComputeHash(existing))) throw new IOException(Texts.Get("setup.different"));
         }
         else
         {
@@ -299,7 +333,7 @@ internal static class Setup
         var saved = ReadShortcut(linkPath);
         if (!String.Equals(saved[0], Path.Combine(target, "Tomato.exe"), StringComparison.OrdinalIgnoreCase) ||
             !String.Equals(saved[1], target, StringComparison.OrdinalIgnoreCase))
-            throw new IOException("快捷方式校验失败。安装文件已保留，请检查所选路径后重试。");
+            throw new IOException(Texts.Get("setup.shortcut"));
         // Retire only the known legacy app link, after the new link has been verified.
         string legacy = Path.Combine(folder, "朱果番茄钟.lnk");
         if (File.Exists(legacy) && String.Equals(Path.GetFileName(ReadShortcut(legacy)[0]), "Tomato.exe", StringComparison.OrdinalIgnoreCase))

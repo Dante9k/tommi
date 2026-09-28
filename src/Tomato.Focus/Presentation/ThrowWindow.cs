@@ -14,7 +14,7 @@ namespace Tomato
 
         public ThrowWindow(BitmapSource texture, Rect bounds, Point origin)
         {
-            Title = "Tommi · 投掷动画";
+            Title = Texts.Get("throw.title");
             WindowStyle = WindowStyle.None;
             ResizeMode = ResizeMode.NoResize;
             AllowsTransparency = true;

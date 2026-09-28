@@ -2,6 +2,7 @@ namespace Tomato
 {
     public sealed class Preferences
     {
+        public string Language;
         public int Seconds = 1500;
         public long DeadlineTicks;
         public bool Active;

@@ -32,7 +32,7 @@ namespace Tomato
             }
 
             if (!String.Equals(Read(), command, StringComparison.Ordinal))
-                throw new IOException("登录启动设置未能保存，请检查系统权限。");
+                throw new IOException(Texts.Get("startup.saveFailed"));
         }
     }
 
@@ -54,10 +54,10 @@ namespace Tomato
         public static string Command(string executable)
         {
             if (String.IsNullOrWhiteSpace(executable) || !Path.IsPathRooted(executable) || executable.IndexOf('"') >= 0)
-                throw new IOException("登录启动需要有效的程序路径。");
+                throw new IOException(Texts.Get("startup.invalidPath"));
             string command = "\"" + Path.GetFullPath(executable) + "\" --startup";
             if (command.Length > 260)
-                throw new IOException("程序路径过长，无法设置登录启动。请安装到较短的路径。");
+                throw new IOException(Texts.Get("startup.pathLong"));
             return command;
         }
 
@@ -121,7 +121,7 @@ namespace Tomato
         {
             if (!(ex is IOException || ex is UnauthorizedAccessException || ex is System.Security.SecurityException))
                 throw ex;
-            Error = "登录启动设置未完成；可重新切换开关。";
+            Error = Texts.Get("startup.error");
         }
     }
 }
