@@ -603,6 +603,21 @@ namespace Tomato
             }
         }
 
+        public void FinishForIdle()
+        {
+            if (appearanceAnimating)
+                FinishAppearance();
+        }
+
+        public BitmapSource IdleSnapshot()
+        {
+            UpdateLayout();
+            var bitmap = new RenderTargetBitmap(750, 750, 288, 288, PixelFormats.Pbgra32);
+            bitmap.Render(canvas);
+            bitmap.Freeze();
+            return bitmap;
+        }
+
         public void ShowEditor()
         {
             picker.IsEnabled = true;

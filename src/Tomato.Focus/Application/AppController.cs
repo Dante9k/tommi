@@ -35,6 +35,7 @@ namespace Tomato
         MemoryStream sound;
         public TomatoWindow Window { get; private set; }
         public SettingsWindow Settings { get; private set; }
+        public IdleController Idle { get; private set; }
         public bool Exiting { get; private set; }
 
         public string Language
@@ -50,6 +51,8 @@ namespace Tomato
             preferences.Language = Texts.Normalize(language);
             Texts.SetLanguage(preferences.Language);
             Window.RefreshLanguage();
+            if (Idle != null && Idle.Window != null)
+                Idle.Window.RefreshLanguage();
             if (overlay != null)
                 overlay.Title = Texts.Get("throw.title");
             if (Settings != null)
@@ -239,11 +242,12 @@ namespace Tomato
             Window.Duration = Math.Max(1, Math.Min(86399, preferences.Seconds));
             Window.Left = double.IsNaN(preferences.Left) ? SystemParameters.WorkArea.Right - Window.Width - 50 : preferences.Left + 250 - Window.Width;
             Window.Top = double.IsNaN(preferences.Top) ? SystemParameters.WorkArea.Top + 90 : preferences.Top;
+            Idle = new IdleController(this, art);
             ticker.Tick += Tick;
             initialized = true;
         }
 
-        public void Launch(bool restore)
+        public void Launch(bool restore, bool startHanging = true)
         {
             Window.Show();
             ClampWindow();
@@ -268,6 +272,8 @@ namespace Tomato
             }
 
             PrepareWheelFeedback();
+            if (startHanging && clock.Phase == TimerPhase.Editing)
+                Idle.Park(false);
         }
 
         public void DurationChanged()
@@ -293,6 +299,7 @@ namespace Tomato
 
         public void Start()
         {
+            Idle.Reveal();
             StopWheelFeedback();
             if (clock.Phase == TimerPhase.Running)
             {
@@ -324,6 +331,7 @@ namespace Tomato
 
         void Tick(object sender, EventArgs e)
         {
+            Idle.Check();
             if (preview && DateTime.UtcNow >= previewUntil)
             {
                 StopAlarm();
@@ -363,6 +371,7 @@ namespace Tomato
         {
             if (overlay != null)
                 return;
+            Idle.Reveal();
             Window.Settle();
             StopWheelFeedback();
             preview = isPreview;
@@ -431,6 +440,7 @@ namespace Tomato
             if (player != null)
                 player.Stop();
             clock.Stop();
+            Idle.Touch();
             Window.ShowEditor();
             if (restorePosition)
             {
@@ -445,10 +455,12 @@ namespace Tomato
 
         public void Cancel()
         {
+            Idle.Reveal();
             Window.Settle();
             StopWheelFeedback();
             StopAlarm();
             clock.Stop();
+            Idle.Touch();
             Window.ShowEditor();
             Window.Show();
             Window.Activate();
@@ -458,6 +470,13 @@ namespace Tomato
 
         public void Show()
         {
+            if (Idle.IsHanging)
+            {
+                Idle.Detach();
+                return;
+            }
+
+            Idle.Touch();
             if (clock.Phase == TimerPhase.Running)
                 Window.ShowCountdown(clock.Remaining(DateTime.UtcNow));
             Window.Show();
@@ -534,6 +553,7 @@ namespace Tomato
 
         public void OpenSettings()
         {
+            Idle.Touch();
             if (loginStartup != null)
                 loginStartup.Refresh();
             if (Settings != null)
@@ -555,6 +575,7 @@ namespace Tomato
             {
                 if (Settings == panel)
                     Settings = null;
+                Idle.Touch();
             };
             panel.MaxHeight = Math.Max(160, limit.Y - corner.Y - 16);
             panel.Left = Math.Max(corner.X + 8, Math.Min(anchor.X - panel.Width + 24, limit.X - panel.Width - 8));
@@ -593,6 +614,7 @@ namespace Tomato
                 if (IsThrowing)
                     StopAlarm();
                 ClampWindow();
+                Idle.DisplayChanged();
             }));
         }
 
@@ -650,6 +672,7 @@ namespace Tomato
             throwFeedback.Dispose();
             Save();
             Exiting = true;
+            Idle.Dispose();
             ticker.Stop();
             Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= DisplayChanged;
             if (hotkey)

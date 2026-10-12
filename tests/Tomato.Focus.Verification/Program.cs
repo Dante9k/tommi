@@ -11,16 +11,18 @@ namespace Tomato.Tests
         private static int Main(string[] args)
         {
             string mode = args.Length == 0 ? "--self-test" : args[0];
+            if (mode == "--hanging-launch-smoke" && args.Length == 2)
+                return HangingVerification.LaunchSmoke(args[1]);
             if (mode == "--self-test")
                 return Verification.Run();
             if (mode == "--render-preview")
                 return Verification.Render();
             if (mode == "--installer-test" && args.Length == 2)
                 return InstallerVerification.Run(args[1]);
-            if (mode != "--smoke-test" && mode != "--focus-smoke" && mode != "--settings-smoke" && mode != "--wheel-smoke" && mode != "--language-smoke")
+            if (mode != "--smoke-test" && mode != "--focus-smoke" && mode != "--settings-smoke" && mode != "--wheel-smoke" && mode != "--language-smoke" && mode != "--hanging-smoke" && mode != "--hanging-input-smoke" && mode != "--hanging-timeout-smoke")
             {
                 Console.Error.WriteLine("Unknown mode: " + mode);
-                Console.Error.WriteLine("Usage: Tomato.Verify.exe [--self-test|--render-preview|--smoke-test|--focus-smoke|--settings-smoke|--wheel-smoke|--language-smoke|--installer-test SETUP_PATH]");
+                Console.Error.WriteLine("Usage: Tomato.Verify.exe [--self-test|--render-preview|--smoke-test|--focus-smoke|--settings-smoke|--wheel-smoke|--language-smoke|--hanging-smoke|--hanging-input-smoke|--hanging-timeout-smoke|--installer-test SETUP_PATH]");
                 return 2;
             }
 
@@ -40,8 +42,14 @@ namespace Tomato.Tests
             try
             {
                 controller = new AppController(application, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "smoke-state.xml"), new StartupVerification.FakeRegistration());
-                controller.Launch(false);
-                if (mode == "--language-smoke")
+                controller.Launch(false, false);
+                if (mode == "--hanging-timeout-smoke")
+                    HangingVerification.TimeoutSmoke(controller);
+                else if (mode == "--hanging-input-smoke")
+                    HangingInputVerification.Smoke(controller);
+                else if (mode == "--hanging-smoke")
+                    HangingVerification.Smoke(controller);
+                else if (mode == "--language-smoke")
                     LocalizationVerification.Smoke(controller);
                 else if (mode == "--wheel-smoke")
                     WheelVerification.Smoke(controller);
