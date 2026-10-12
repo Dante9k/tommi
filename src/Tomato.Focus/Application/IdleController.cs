@@ -69,6 +69,9 @@ namespace Tomato
             Rect home = new Rect(area.Right - 112, area.Top + 54, 76, 76);
             var motion = new HangingMotion(home, new Point(area.Right + 4, area.Top + 16));
             BitmapSource snapshot = controller.Window.IdleSnapshot();
+            // A slow audio driver may take up to 200ms to close. Finish that work before
+            // starting the branch timeline, so its first frames are never skipped.
+            controller.StopWheelFeedback();
             Window = new HangingWindow(motion, art, snapshot, Detach, Complete, controller.OpenSettings);
             bool moving = animate && SystemParameters.ClientAreaAnimation;
             if (moving)
@@ -84,7 +87,6 @@ namespace Tomato
             Window.SetBounds(bounds);
             Window.Show();
             controller.Window.Hide();
-            controller.StopWheelFeedback();
             Window.Animate();
         }
 
