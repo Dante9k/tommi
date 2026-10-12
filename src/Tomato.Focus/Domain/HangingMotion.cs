@@ -114,7 +114,8 @@ namespace Tomato
             if (Phase == HangingPhase.Rebounding)
             {
                 double t = Clamp(elapsed / .72);
-                double spring = Math.Exp(-6 * t) * Math.Cos(9 * t) * (1 - Smooth(t));
+                // Released from tension: zero initial velocity, then a damped overshoot.
+                double spring = Math.Exp(-6 * t) * (Math.Cos(9 * t) + 6.0 / 9 * Math.Sin(9 * t)) * (1 - Smooth(t));
                 Fruit = new Rect(home.Location + (from.Location - home.Location) * spring, home.Size);
                 Angle = fromAngle * spring;
                 if (t == 1)

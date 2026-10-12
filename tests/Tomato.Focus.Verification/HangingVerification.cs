@@ -36,6 +36,9 @@ namespace Tomato.Tests
             Require(!m.Pull(0, 95) && m.Pull(0, 96), "Downward pull has a deliberate threshold");
             Require(m.Fruit.Y > home.Y && m.Fruit.Y - home.Y < 96, "Branch resists pulling");
             m.Release(0);
+            Rect released = m.Fruit;
+            m.Advance(.001);
+            Require((m.Fruit.Location - released.Location).Length / .001 < 15, "Release accelerates from rest instead of snapping into an upward velocity");
             m.Advance(.3);
             Rect spring = m.Fruit;
             m.Grab(.3);
