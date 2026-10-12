@@ -28,6 +28,8 @@ namespace Tomato.Tests
             var lines = new List<string>();
             try
             {
+                HangingVerification.Run();
+                lines.Add("PASS hanging idle deadline, pull threshold, spring return, branch attachment, exact handoff and refresh-rate independence");
                 StartupVerification.Run();
                 lines.Add("PASS 登录启动默认值、显式开关、升级路径、外部移除、失败恢复及路径限制；不修改系统启动项");
                 var now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -278,6 +280,7 @@ namespace Tomato.Tests
                 root.Arrange(new Rect(0, 0, width, height));
                 root.UpdateLayout();
                 Art.Save(root, (int)Math.Ceiling(width), (int)Math.Ceiling(height), Output("tomato-widget.png"));
+                HangingVerification.Storyboard(controller);
                 Assert(FindNamed(root, "Units") == null, "不再显示时分秒标签");
                 SaveAudioPreview();
                 EffectVerification.RenderPreview(Output("throw-impacts.wav"));

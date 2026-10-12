@@ -54,6 +54,7 @@ jobs:
             build/render-results.txt
             build/tomato-widget.png
             build/tomato-alarm.png
+            build/hanging-storyboard.png
             build/installer-preview.png
             build/installer-results.txt
           if-no-files-found: warn

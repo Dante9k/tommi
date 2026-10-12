@@ -105,6 +105,7 @@ namespace Tomato.Tests
                             var feedback = (WheelFeedback)typeof(AppController).GetField("wheelFeedback", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(controller);
                             var output = (NativeWaveOutput)typeof(WheelFeedback).GetField("output", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).GetValue(feedback);
                             Assert(controller.WheelAudioReady, "Editor prewarms the native audio device; visible=" + controller.Window.IsVisible + "; phase=" + controller.Phase + "; enabled=" + controller.WheelSound + "; output=" + (output == null ? "null" : "failed=" + output.Failed + ",stopped=" + output.Stopped));
+                            openingWaits = 0;
                             for (int i = 1; i < 20; i++)
                                 range.SetValue(i % wheel.Limit);
                             Assert(clicks == 0, "An input burst cannot play before paint");
@@ -135,12 +136,25 @@ namespace Tomato.Tests
                             controller.Show();
                             break;
                         case 7:
+                            Assert(clicks == 1, "Reopen must remain silent while the audio device opens");
+                            if (WaitForAudio(controller, ref openingWaits))
+                            {
+                                stage--;
+                                break;
+                            }
+
                             Assert(clicks == 1 && controller.WheelAudioReady, "Reopen stays silent and prewarms audio");
                             controller.ToggleWheelSound();
                             Assert(!controller.WheelAudioReady, "Mute releases audio device");
                             controller.ToggleWheelSound();
                             break;
                         case 8:
+                            if (WaitForAudio(controller, ref openingWaits))
+                            {
+                                stage--;
+                                break;
+                            }
+
                             Assert(controller.WheelAudioReady, "Unmute prewarms before next detent");
                             range.SetValue(10);
                             controller.Start();
@@ -151,6 +165,13 @@ namespace Tomato.Tests
                             controller.Cancel();
                             break;
                         case 10:
+                            Assert(clicks == 1, "Cancel must remain silent while the audio device opens");
+                            if (WaitForAudio(controller, ref openingWaits))
+                            {
+                                stage--;
+                                break;
+                            }
+
                             Assert(controller.WheelAudioReady, "Cancel restores a prepared editor");
                             range.SetValue(11);
                             Assert(clicks == 1, "Direct input also waits for paint");
@@ -184,6 +205,20 @@ namespace Tomato.Tests
                 }
             };
             timer.Start();
+        }
+
+        // Every native reopen is asynchronous, including hide/show, unmute and cancel.
+        // Keep the same bounded five-second startup contract instead of assuming one 250ms tick.
+        static bool WaitForAudio(AppController controller, ref int waits)
+        {
+            if (controller.WheelAudioReady)
+            {
+                waits = 0;
+                return false;
+            }
+
+            Assert(++waits <= 20, "Native audio device did not finish opening within five seconds");
+            return true;
         }
 
         static TimeWheel Find(Visual root)

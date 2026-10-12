@@ -51,6 +51,14 @@ namespace Tomato
         static readonly Dictionary<string, string[]> catalog = new Dictionary<string, string[]>
         {
             {
+                "idle.tooltip",
+                new[]
+                {
+                    "往下拉，摘下小番茄 · 双击也可展开 · 右键设置",
+                    "Pull down to pick your tomato · Double-click to open · Right-click for settings"
+                }
+            },
+            {
                 "app.title",
                 new[]
                 {
