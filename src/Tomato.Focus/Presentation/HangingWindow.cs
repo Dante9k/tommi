@@ -139,7 +139,7 @@ namespace Tomato
                 else
                 {
                     // Keep the pull corridor inside this compact window, never a desktop-size input layer.
-                    Rect bounds = new Rect(Motion.Fruit.Left - 64, Motion.Root.Y - 20, 220, 310);
+                    Rect bounds = new Rect(Motion.Fruit.Left - 64, Motion.Root.Y - 20, 220, Math.Max(310, Motion.Fruit.Bottom - Motion.Root.Y + 170));
                     SetBounds(bounds);
                     SetInteractive(true);
                 }
@@ -162,13 +162,6 @@ namespace Tomato
             hit.Inflate(8, 8);
             if (!hit.Contains(point))
                 return;
-            if (e.ClickCount == 2)
-            {
-                detach();
-                e.Handled = true;
-                return;
-            }
-
             Motion.Grab(Now);
             StopFrames();
             down = PointToScreen(e.GetPosition(this));
@@ -248,8 +241,9 @@ namespace Tomato
             dc.PushTransform(new TranslateTransform(-Origin.X, -Origin.Y));
             Point root = motion.Root, stem = motion.Stem;
             Vector span = stem - root;
-            Point c1 = root + new Vector(span.X * .65, -7);
-            Point c2 = stem + new Vector(15, -Math.Max(20, span.Y * .6));
+            // The vine enters vertically through the top bezel, then bends toward the fruit.
+            Point c1 = root + new Vector(0, Math.Max(16, span.Y * .28));
+            Point c2 = stem - new Vector(span.X * .18, Math.Max(16, span.Y * .28));
             if (motion.Branch > 0)
             {
                 // De Casteljau subdivision grows/retracts the branch along its curve, not by fading it.

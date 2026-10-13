@@ -66,8 +66,9 @@ namespace Tomato
             controller.Window.FinishForIdle();
             editor = new Rect(controller.Window.Left, controller.Window.Top, controller.Window.Width, controller.Window.Height);
             area = WorkArea();
-            Rect home = new Rect(area.Right - 112, area.Top + 54, 76, 76);
-            var motion = new HangingMotion(home, new Point(area.Right + 4, area.Top + 16));
+            Rect display = DisplayBounds();
+            Rect home = new Rect(area.Right - 112, Math.Max(display.Top + 32, area.Top + 12), 76, 76);
+            var motion = new HangingMotion(home, new Point(home.Left + home.Width / 2, display.Top - 4), display);
             BitmapSource snapshot = controller.Window.IdleSnapshot();
             // A slow audio driver may take up to 200ms to close. Finish that work before
             // starting the branch timeline, so its first frames are never skipped.
@@ -76,11 +77,11 @@ namespace Tomato
             bool moving = animate && SystemParameters.ClientAreaAnimation;
             if (moving)
                 motion.Return(editor, HangingWindow.Now);
-            Rect bounds = new Rect(home.Left - 64, area.Top - 4, 220, 310);
+            Rect bounds = new Rect(home.Left - 64, display.Top - 4, 220, Math.Max(310, home.Bottom - display.Top + 150));
             if (moving)
             {
                 bounds.Union(editor);
-                bounds.Union(new Point(editor.Right + 76, editor.Top - 105));
+                bounds.Union(motion.ReturnBounds);
                 bounds.Inflate(18, 18);
             }
 
@@ -151,10 +152,20 @@ namespace Tomato
 
         Rect WorkArea()
         {
+            return ScreenBounds(true);
+        }
+
+        Rect DisplayBounds()
+        {
+            return ScreenBounds(false);
+        }
+
+        Rect ScreenBounds(bool workArea)
+        {
             var visual = PresentationSource.FromVisual(controller.Window);
             var transform = visual.CompositionTarget.TransformFromDevice;
             var screen = Forms.Screen.FromHandle(new WindowInteropHelper(controller.Window).Handle);
-            var bounds = screen.WorkingArea;
+            var bounds = workArea ? screen.WorkingArea : screen.Bounds;
             return new Rect(transform.Transform(new Point(bounds.Left, bounds.Top)), transform.Transform(new Point(bounds.Right, bounds.Bottom)));
         }
 

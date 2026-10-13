@@ -19,7 +19,7 @@ namespace Tomato.Tests
 
         static HangingMotion Motion()
         {
-            return new HangingMotion(new Rect(620, 54, 76, 76), new Point(736, 16));
+            return new HangingMotion(new Rect(620, 54, 76, 76), new Point(658, -4));
         }
 
         public static void Run()
@@ -51,19 +51,19 @@ namespace Tomato.Tests
             m.Return(normal, 10);
             m.Advance(10.22);
             Require(m.Fruit == normal && m.Branch > 0 && m.Branch < 1 && m.Editor == 1, "Branch must reach the unchanged stem before lifting");
-            m.Advance(10.46);
+            m.Advance(10 + BranchReturn.ReachSeconds);
             Require(m.Branch == 1, "Branch attaches before lifting");
-            m.Advance(13);
+            m.Advance(10 + HangingMotion.ReturnDuration);
             Require(m.Fruit == home && m.Angle == 0 && m.Editor == 0 && !m.Animating, "Return completes and does not leave a permanent render callback");
-            m.Grab(14);
+            m.Grab(16);
             m.Pull(-20, 100);
             var picked = m.Fruit;
-            m.Detach(normal, 14);
-            m.Advance(14);
+            m.Detach(normal, 16);
+            m.Advance(16);
             Require(m.Fruit == picked, "Picking starts exactly under the pointer");
-            m.Advance(14.23);
+            m.Advance(16.23);
             Require(m.Branch == 0 && m.Fruit.Width > 76 && m.Fruit.Width < 220, "Branch retracts before growth finishes");
-            m.Advance(15);
+            m.Advance(17);
             Require(m.Fruit == normal && m.Editor == 1 && m.Phase == HangingPhase.Complete, "Editor handoff is exact");
             m.Return(normal, 20);
             m.Advance(20.2);
@@ -83,21 +83,98 @@ namespace Tomato.Tests
             {
                 var a = Motion();
                 a.Return(normal, 0);
-                for (int i = 0; i < hz; i++)
+                for (int i = 0; i < hz * 3; i++)
                     a.Advance(i / (double)hz);
-                a.Advance(1);
+                a.Advance(3);
                 var b = Motion();
                 b.Return(normal, 0);
-                b.Advance(1);
+                b.Advance(3);
                 Require(a.Fruit == b.Fruit && a.Angle == b.Angle && a.Branch == b.Branch, "Motion must not depend on frame rate");
                 a.Advance(1000);
                 Require(a.Phase == HangingPhase.Hanging && a.Fruit == home, "Sleep/resume completes safely");
             }
 
-            var negative = new HangingMotion(new Rect(-210, -800, 76, 76), new Point(-90, -840));
+            var negative = new HangingMotion(new Rect(-210, -800, 76, 76), new Point(-172, -840));
             negative.Return(new Rect(-1700, -450, 220, 220), 0);
             negative.Advance(10);
             Require(negative.Fruit.Left == -210 && negative.Fruit.Top == -800, "Secondary monitor negative coordinates");
+            ReturnPhysics();
+        }
+
+        static Point Stem(Rect fruit)
+        {
+            return new Point(fruit.X + fruit.Width * .5, fruit.Y + fruit.Height * .22);
+        }
+
+        static void ReturnPhysics()
+        {
+            var screen = new Rect(0, 0, 1920, 1080);
+            var root = new Point(1846, -4);
+            var home = new Rect(1808, 32, 76, 76);
+            var start = new Rect(700, 300, 220, 220);
+            var path = new BranchReturn(root, home, start, screen);
+            Point attached = Stem(start), fallen = Stem(path.Sample(.1).Fruit);
+            Require(fallen.X > attached.X && fallen.Y > attached.Y, "Gravity first swings the attached fruit down and right");
+            double length = (attached - root).Length, size = start.Width;
+            for (int i = 1; i <= 1080; i++)
+            {
+                var pose = path.Sample(i / 240.0);
+                double nextLength = (Stem(pose.Fruit) - root).Length;
+                Require(nextLength <= length + .01 && pose.Fruit.Width <= size + .01, "Tether and fruit shorten continuously during reeling");
+                length = nextLength;
+                size = pose.Fruit.Width;
+            }
+
+            Require(path.Sample(BranchReturn.SwingSeconds).Fruit == home, "Pendulum settles exactly at its vertical perch");
+            foreach (Rect display in new[]
+            {
+                screen,
+                new Rect(-1920, -1080, 1920, 1080),
+                new Rect(0, 0, 3440, 1440),
+                new Rect(0, 0, 1280, 720),
+                new Rect(0, 0, 1024, 600)
+            }
+
+            )
+            {
+                var perch = new Rect(display.Right - 112, display.Top + 32, 76, 76);
+                var anchor = new Point(perch.X + 38, display.Top - 4);
+                foreach (double x in new[]
+                {
+                    display.Left,
+                    display.Left + display.Width / 2 - 110,
+                    display.Right - 220
+                }
+
+                )
+                    foreach (double y in new[]
+                    {
+                        display.Top,
+                        display.Top + display.Height / 2 - 110,
+                        display.Bottom - 220
+                    }
+
+                    )
+                    {
+                        var origin = new Rect(x, y, 220, 220);
+                        var motion = new HangingMotion(perch, anchor, display);
+                        motion.Return(origin, 0);
+                        Rect previous = origin;
+                        for (int i = 0; i <= 1280; i++)
+                        {
+                            motion.Advance(i / 240.0);
+                            Require(motion.Root == anchor, "Top bezel anchor remains fixed throughout return");
+                            Require(!double.IsNaN(motion.Angle) && !double.IsInfinity(motion.Fruit.X), "Pendulum remains finite");
+                            Require((motion.Fruit.Location - previous.Location).Length < 40, "Return never teleports across a display boundary");
+                            Point stem = Stem(motion.Fruit);
+                            double tilt = motion.Angle * Math.PI / 180, width = motion.Fruit.Width;
+                            Point center = stem + new Vector(-Math.Sin(tilt) * width * .28, Math.Cos(tilt) * width * .28);
+                            double radius = width * .44;
+                            Require(center.X - radius >= display.Left - .1 && center.X + radius <= display.Right + .1 && center.Y + radius <= display.Bottom + .1, "Visible fruit stays on display: " + display + " start " + origin + " time " + i / 240.0);
+                            previous = motion.Fruit;
+                        }
+                    }
+            }
         }
 
         static string Output(string file)
@@ -163,7 +240,7 @@ namespace Tomato.Tests
                         Require(!c.Idle.IsHanging && c.Window.IsVisible, "Idle must not begin before one minute");
                     if (c.Idle.IsHanging)
                         sawReturn = true;
-                    if (time < 64)
+                    if (time < 60 + HangingMotion.ReturnDuration + 1)
                         return;
                     Require(sawReturn && c.Idle.IsHanging && c.Idle.Window.Motion.Phase == HangingPhase.Hanging, "One actual minute of inactivity must park and settle");
                     File.WriteAllText(Output("hanging-timeout-results.txt"), "PASS real 60-second inactivity deadline and settled hanging state; no early return");
@@ -202,7 +279,7 @@ namespace Tomato.Tests
                 for (int i = 0; i < 8; i++)
                 {
                     int col = i % 4, row = i / 4;
-                    var m = new HangingMotion(new Rect(165, 64, 76, 76), new Point(286, 18));
+                    var m = new HangingMotion(new Rect(165, 32, 76, 76), new Point(203, -4));
                     string label;
                     if (i < 4)
                     {
@@ -230,12 +307,12 @@ namespace Tomato.Tests
                         label = new[]
                         {
                             "05 / REACH",
-                            "06 / LIFT",
-                            "07 / SWAY",
+                            "06 / SWING",
+                            "07 / REEL",
                             "08 / REST"
                         }[i - 4];
                         m.Return(new Rect(56, 78, 220, 220), 0);
-                        m.Advance(new[] { .3, 1.05, 1.7, 2.65 }[i - 4]);
+                        m.Advance(new[] { .5, 1.0, 1.5, HangingMotion.ReturnDuration }[i - 4]);
                     }
 
                     var surface = new HangingSurface(m, art, snapshot)
@@ -288,12 +365,17 @@ namespace Tomato.Tests
                 try
                 {
                     double now = elapsed.Elapsed.TotalSeconds;
-                    if (now - since < (stage == 1 || stage == 3 ? 3.1 : stage == 2 || stage == 4 ? 1 : .25))
+                    if (now - since < (stage == 1 || stage == 3 ? HangingMotion.ReturnDuration + .5 : stage == 2 || stage == 4 ? 1 : .25))
                         return;
                     if (stage == 0)
                     {
                         c.Idle.Park(true);
                         Require(c.Idle.IsHanging && !c.Window.IsVisible, "Returning replaces the editor with one animation surface");
+                        var handle = new System.Windows.Interop.WindowInteropHelper(c.Window).Handle;
+                        var display = System.Windows.Forms.Screen.FromHandle(handle).Bounds;
+                        var transform = PresentationSource.FromVisual(c.Window).CompositionTarget.TransformFromDevice;
+                        double top = transform.Transform(new Point(display.Left, display.Top)).Y;
+                        Require(Math.Abs(c.Idle.Window.Motion.Root.Y - (top - 4)) < .01, "Branch starts at the monitor top bezel, not the work area or right edge");
                     }
                     else if (stage == 1)
                     {
