@@ -222,6 +222,7 @@ namespace Tomato
     {
         readonly HangingMotion motion;
         readonly BitmapSource art, editor;
+        readonly ImageBrush silhouette;
         static readonly Pen bark = Pen("#36552C", 4.2);
         static readonly Pen green = Pen("#719A48", 2.7);
         static readonly Pen light = Pen("#B8D080", .7);
@@ -229,6 +230,7 @@ namespace Tomato
         static readonly Brush leafFold = FrozenBrush("#4E7836");
         static readonly Pen vein = Pen("#BDD58C", .55);
         static readonly DrawingGroup leaflet = LeafDrawing();
+        static readonly Brush distanceLight = FrozenBrush("#D6DDD2");
         public Point Origin { get; set; }
 
         public HangingSurface(HangingMotion motion, BitmapSource art, BitmapSource editor)
@@ -236,6 +238,11 @@ namespace Tomato
             this.motion = motion;
             this.art = art;
             this.editor = editor;
+            silhouette = new ImageBrush(art)
+            {
+                Stretch = Stretch.Fill
+            };
+            silhouette.Freeze();
             RenderOptions.SetBitmapScalingMode(this, BitmapScalingMode.HighQuality);
         }
 
@@ -247,32 +254,30 @@ namespace Tomato
             // A relaxed vine bows to one side; pulling takes up the slack gradually.
             // Both ends stay attached while the curve and its leaf tangents follow the load.
             double slack = 1 / (1 + Math.Max(0, span.Length - 54) / 90);
-            Point c1 = root + new Vector(-32 * slack, Math.Max(16, span.Y * .28));
-            Point c2 = stem - new Vector(span.X * .18 + 23 * slack, Math.Max(16, span.Y * .32));
+            Point c1 = root + new Vector(-32 * slack - motion.Load * 10, Math.Max(16, span.Y * .28) + motion.Load * 12);
+            Point c2 = stem - new Vector(span.X * .18 + 23 * slack + motion.Load * 8, Math.Max(16, span.Y * .32) - motion.Load * 10);
             if (motion.Branch > 0)
             {
-                // De Casteljau subdivision grows/retracts the branch along its curve, not by fading it.
+                // The far anchor stays thin; each nearer section shares the fruit's camera depth.
                 double t = motion.Branch;
-                Point a = Lerp(root, c1, t), b = Lerp(c1, c2, t), c = Lerp(c2, stem, t);
-                Point d = Lerp(a, b, t), e = Lerp(b, c, t), tip = Lerp(d, e, t);
-                var curve = new StreamGeometry();
-                using (var path = curve.Open())
+                double near = motion.Fruit.Width / 76;
+                dc.DrawGeometry(bark.Brush, null, VineRibbon(root, c1, c2, stem, t, near, 4.2, 0));
+                dc.DrawGeometry(green.Brush, null, VineRibbon(root, c1, c2, stem, t, near, 2.7, 0));
+                dc.DrawGeometry(light.Brush, null, VineRibbon(root, c1, c2, stem, t, near, .65, -.7));
+                if (t < 1)
                 {
-                    path.BeginFigure(root, false, false);
-                    path.BezierTo(a, d, tip, true, false);
+                    Point tip = Curve(root, c1, c2, stem, t);
+                    double scale = PerspectiveAlong(t, near);
+                    dc.DrawEllipse(bark.Brush, null, tip, 2.1 * scale, 2.1 * scale);
+                    dc.DrawEllipse(green.Brush, null, tip, 1.35 * scale, 1.35 * scale);
                 }
 
-                curve.Freeze();
-                dc.DrawGeometry(null, bark, curve);
-                dc.DrawGeometry(null, green, curve);
-                dc.PushTransform(new TranslateTransform(0, -1));
-                dc.DrawGeometry(null, light, curve);
-                dc.Pop();
-                DrawBranchLeaf(dc, root, c1, c2, stem, .42, t, -18, .82);
-                DrawBranchLeaf(dc, root, c1, c2, stem, .70, t, 194, .56);
+                DrawBranchLeaf(dc, root, c1, c2, stem, .42, t, -18, .82 * PerspectiveAlong(.42, near));
+                DrawBranchLeaf(dc, root, c1, c2, stem, .70, t, 194, .56 * PerspectiveAlong(.70, near));
             }
 
             dc.PushTransform(new RotateTransform(motion.Angle, stem.X, stem.Y));
+            dc.PushTransform(new ScaleTransform(Math.Cos(motion.Yaw * Math.PI / 180), 1, stem.X, stem.Y));
             dc.DrawImage(art, motion.Fruit);
             if (motion.Editor > 0 && editor != null)
             {
@@ -281,8 +286,52 @@ namespace Tomato
                 dc.Pop();
             }
 
+            double distance = Math.Max(0, Math.Min(1, (220 / motion.Fruit.Width - 1) / (220.0 / 76 - 1)));
+            dc.PushOpacityMask(silhouette);
+            dc.PushOpacity(distance * .055);
+            dc.DrawRectangle(distanceLight, null, motion.Fruit);
             dc.Pop();
             dc.Pop();
+            dc.Pop();
+            dc.Pop();
+            dc.Pop();
+        }
+
+        static double PerspectiveAlong(double t, double near)
+        {
+            return 1 / (1 - t + t / near);
+        }
+
+        static StreamGeometry VineRibbon(Point a, Point b, Point c, Point d, double growth, double near, double width, double offset)
+        {
+            const int segments = 32;
+            var left = new Point[segments + 1];
+            var right = new Point[segments + 1];
+            for (int i = 0; i <= segments; i++)
+            {
+                double t = growth * i / segments;
+                Point point = Curve(a, b, c, d, t);
+                Vector tangent = (b - a) * (3 * (1 - t) * (1 - t)) + (c - b) * (6 * (1 - t) * t) + (d - c) * (3 * t * t);
+                Vector normal = new Vector(-tangent.Y, tangent.X);
+                if (normal.LengthSquared > .0001)
+                    normal.Normalize();
+                double scale = PerspectiveAlong(t, near);
+                left[i] = point + normal * ((offset - width / 2) * scale);
+                right[i] = point + normal * ((offset + width / 2) * scale);
+            }
+
+            var ribbon = new StreamGeometry();
+            using (var path = ribbon.Open())
+            {
+                path.BeginFigure(left[0], true, true);
+                for (int i = 1; i <= segments; i++)
+                    path.LineTo(left[i], true, false);
+                for (int i = segments; i >= 0; i--)
+                    path.LineTo(right[i], true, false);
+            }
+
+            ribbon.Freeze();
+            return ribbon;
         }
 
         static void DrawBranchLeaf(DrawingContext dc, Point root, Point c1, Point c2, Point stem, double position, double growth, double angle, double scale)

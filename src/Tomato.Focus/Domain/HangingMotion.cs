@@ -33,13 +33,15 @@ namespace Tomato
         }
 
         Vector pull, grab;
-        double started, fromAngle, fromBranch, fromEditor;
+        double started, fromAngle, fromBranch, fromEditor, fromYaw, fromLoad;
         public HangingPhase Phase { get; private set; }
         public Rect Fruit { get; private set; }
         public Point Root { get; private set; }
         public double Angle { get; private set; }
         public double Branch { get; private set; }
         public double Editor { get; private set; }
+        public double Yaw { get; private set; }
+        public double Load { get; private set; }
 
         public bool Animating
         {
@@ -76,6 +78,7 @@ namespace Tomato
             Phase = HangingPhase.Returning;
             Branch = 0;
             Editor = 1;
+            Angle = Yaw = Load = 0;
         }
 
         public void Grab(double time)
@@ -113,6 +116,8 @@ namespace Tomato
             fromAngle = Angle;
             fromBranch = Branch;
             fromEditor = Editor;
+            fromYaw = Yaw;
+            fromLoad = Load;
             target = editor;
             started = time;
             Phase = HangingPhase.Detaching;
@@ -138,13 +143,15 @@ namespace Tomato
                 var pose = returning.Sample(swing);
                 Fruit = pose.Fruit;
                 Angle = pose.Angle;
+                Yaw = pose.Yaw;
+                Load = pose.Load;
                 Root = root;
                 Editor = 1 - Smooth(swing / .55);
                 if (elapsed >= ReturnDuration)
                 {
                     Fruit = home;
                     Root = root;
-                    Angle = Editor = 0;
+                    Angle = Editor = Yaw = Load = 0;
                     Phase = HangingPhase.Hanging;
                 }
             }
@@ -154,6 +161,8 @@ namespace Tomato
                 double growth = Smooth(t);
                 Fruit = Mix(from, target, growth);
                 Angle = fromAngle * (1 - growth);
+                Yaw = fromYaw * (1 - growth);
+                Load = fromLoad * (1 - growth);
                 Branch = fromBranch * (1 - Smooth(elapsed / .22));
                 Editor = fromEditor + (1 - fromEditor) * Smooth((t - .45) / .55);
                 if (t == 1)
