@@ -17,12 +17,21 @@ namespace Tomato
     public sealed class HangingMotion
     {
         public const double PullThreshold = 96;
-        public const double ReturnDuration = 2.65;
+        public const double ReturnDuration = BranchReturn.ReachSeconds + BranchReturn.SwingSeconds;
         public const double DetachDuration = .68;
         readonly Rect home;
         readonly Point root;
         Rect from, target;
-        Point fromRoot;
+        readonly Rect? screen;
+        BranchReturn returning;
+        public Rect ReturnBounds
+        {
+            get
+            {
+                return returning == null ? Fruit : returning.Bounds;
+            }
+        }
+
         Vector pull, grab;
         double started, fromAngle, fromBranch, fromEditor;
         public HangingPhase Phase { get; private set; }
@@ -48,10 +57,11 @@ namespace Tomato
             }
         }
 
-        public HangingMotion(Rect home, Point root)
+        public HangingMotion(Rect home, Point root, Rect? screen = null)
         {
             this.home = home;
             this.root = root;
+            this.screen = screen;
             Fruit = home;
             Root = root;
             Branch = 1;
@@ -60,8 +70,8 @@ namespace Tomato
         public void Return(Rect editor, double time)
         {
             from = Fruit = editor;
-            fromRoot = new Point(editor.Right + 36, editor.Top - 85);
-            Root = fromRoot;
+            Root = root;
+            returning = new BranchReturn(root, home, editor, screen);
             started = time;
             Phase = HangingPhase.Returning;
             Branch = 0;
@@ -123,18 +133,13 @@ namespace Tomato
             }
             else if (Phase == HangingPhase.Returning)
             {
-                Branch = Smooth(elapsed / .45);
-                double t = Smooth((elapsed - .45) / 1.1);
-                Fruit = Mix(from, home, t);
-                Root = Mix(fromRoot, root, t);
-                Editor = 1 - Smooth((elapsed - .45) / .55);
-                Angle = 5 * t;
-                if (elapsed >= 1.55)
-                {
-                    double swing = Clamp((elapsed - 1.55) / 1.1);
-                    Angle = 5 * Math.Cos(4 * Math.PI * swing) * (1 - Smooth(swing));
-                }
-
+                Branch = Smooth(elapsed / BranchReturn.ReachSeconds);
+                double swing = Math.Max(0, elapsed - BranchReturn.ReachSeconds);
+                var pose = returning.Sample(swing);
+                Fruit = pose.Fruit;
+                Angle = pose.Angle;
+                Root = root;
+                Editor = 1 - Smooth(swing / .55);
                 if (elapsed >= ReturnDuration)
                 {
                     Fruit = home;

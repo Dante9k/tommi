@@ -49,7 +49,7 @@ namespace Tomato.Tests
             {
                 try
                 {
-                    if (watch.Elapsed.TotalSeconds - since < (stage == 4 || stage == 8 ? 1.1 : .15))
+                    if (watch.Elapsed.TotalSeconds - since < (stage == 5 || stage == 8 || stage == 12 ? 1.1 : .08))
                         return;
                     if (stage == 0)
                         c.Idle.Park(false);
@@ -71,23 +71,45 @@ namespace Tomato.Tests
                     }
                     else if (stage == 2)
                     {
+                        mouse_event(4, 0, 0, 0, UIntPtr.Zero);
+                        down = false;
+                    }
+                    else if (stage == 3)
+                    {
+                        mouse_event(2, 0, 0, 0, UIntPtr.Zero);
+                        down = true;
+                    }
+                    else if (stage == 4)
+                    {
+                        Require(c.Idle.IsHanging && !c.Window.IsVisible && c.Idle.Window.Motion.Phase == HangingPhase.Pulling, "Double-click must not expand the hanging fruit");
+                        mouse_event(4, 0, 0, 0, UIntPtr.Zero);
+                        down = false;
+                    }
+                    else if (stage == 5)
+                    {
+                        Require(c.Idle.Window.Motion.Phase == HangingPhase.Hanging, "Double-click settles without detaching");
+                        mouse_event(2, 0, 0, 0, UIntPtr.Zero);
+                        down = true;
+                    }
+                    else if (stage == 6)
+                    {
                         Require(c.Idle.Window.Motion.Phase == HangingPhase.Pulling && c.Idle.Window.IsMouseCaptured, "Mouse down must capture the fruit");
                         SetCursorPos(start.X + (int)(20 * scale), start.Y + (int)(45 * scale));
                     }
-                    else if (stage == 3)
+                    else if (stage == 7)
                     {
                         Require(c.Idle.Window.Motion.Phase == HangingPhase.Pulling && c.Idle.Window.Motion.Fruit.Y > c.Idle.Window.Motion.Root.Y + 45, "Actual drag bends the branch");
                         mouse_event(4, 0, 0, 0, UIntPtr.Zero);
                         down = false;
                     }
-                    else if (stage == 4)
+                    else if (stage == 8)
                     {
                         Require(c.Idle.Window.Motion.Phase == HangingPhase.Hanging, "Short mouse drag springs back");
                         SetCursorPos(start.X, start.Y);
                         mouse_event(2, 0, 0, 0, UIntPtr.Zero);
                         down = true;
                     }
-                    else if (stage == 5)
+                    else if (stage == 9)
                     {
                         SetCursorPos(start.X, start.Y + (int)(++moves * 18 * scale));
                         if (moves < 6)
@@ -96,17 +118,17 @@ namespace Tomato.Tests
                             return;
                         }
                     }
-                    else if (stage == 6)
+                    else if (stage == 10)
                     {
-                        Require(c.Idle.Window != null && c.Idle.Window.Motion.Phase == HangingPhase.Detaching, "Crossing the threshold starts picking automatically");
+                        Require(c.Idle.Window != null && c.Idle.Window.Motion.Phase == HangingPhase.Detaching, "Crossing the threshold starts picking automatically; phase=" + (c.Idle.Window == null ? "none" : c.Idle.Window.Motion.Phase.ToString()) + ", scale=" + scale + ", captured=" + (c.Idle.Window != null && c.Idle.Window.IsMouseCaptured));
                         Require(!c.Idle.Window.IsMouseCaptured, "Picking releases native mouse capture");
                         mouse_event(4, 0, 0, 0, UIntPtr.Zero);
                         down = false;
                     }
-                    else if (stage == 8)
+                    else if (stage == 12)
                     {
                         Require(!c.Idle.IsHanging && c.Window.IsVisible && c.Window.Width == 220 && c.Phase == TimerPhase.Editing, "Mouse pickup hands off to editable tomato without starting focus");
-                        File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "hanging-input-results.txt"), "PASS native alpha click-through, real pointer capture, resisted pull, short-pull rebound, threshold detach, capture release and editor handoff");
+                        File.WriteAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "hanging-input-results.txt"), "PASS double-click does not expand; native alpha click-through, real pointer capture, resisted pull, short-pull rebound, threshold detach, capture release and editor handoff");
                         timer.Stop();
                         SetCursorPos(original.X, original.Y);
                         c.Quit();
