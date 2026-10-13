@@ -16,7 +16,7 @@
 
 **先摘下一颗番茄。** Windows 版启动时，枝条从当前显示器屏幕上边缘靠右的位置垂下，小番茄挂在右上角。向下拉约 96 个逻辑像素，枝条受力弯曲后迅速收回，番茄逐渐放大成计时器；距离不足时松手会弹回。双击待机小番茄不会展开，仍可通过托盘图标展开。
 
-**未计时且一分钟没有操作**时，枝条从屏幕上边缘逐渐伸长，接住果蒂后，番茄受重力向右下方摆动，随枝条向上收缩逐渐变小，最后在右上角衰减摆动并停稳。靠近屏幕边缘时会调整收枝速度，避免甩出画面。专注计时和到时提醒不会进入待机；打开设置会暂停闲置判断。关闭 Windows 系统动画时直接切换状态。编辑时长、原有设置与有效倒计时继续保留。
+**未计时且一分钟没有操作**时，枝条从屏幕上边缘逐渐伸长，接住果蒂后先承受重量、弯曲下坠，再沿弧线将番茄拉向远处。果身的位置与大小由同一透视距离决定，枝条粗细、叶片、倾转和轻微明暗同步变化，最后在右上角停稳。靠近屏幕底边时会减轻下坠幅度，避免甩出画面。专注计时和到时提醒不会进入待机；打开设置会暂停闲置判断。关闭 Windows 系统动画时直接切换状态。编辑时长、原有设置与有效倒计时继续保留。
 
 ![摘下和挂回小番茄](docs/images/hanging-storyboard.png)
 
@@ -35,10 +35,10 @@
 
 Windows 界面支持 **English / 简体中文**。右键番茄或托盘图标，在「界面语言」选择 English、简体中文或跟随系统，立即生效且不重置计时。默认在中文 Windows 上显示中文，其他系统语言显示英文；安装器也有独立的中英文切换按钮。[查看设置界面](docs/images/settings-panel.png)。
 
-下载 [Windows 安装包](https://github.com/Dante9k/tommi/releases/download/v1.1.22/Tommi-1.1.22-Setup.exe) 或 [便携 ZIP](https://github.com/Dante9k/tommi/releases/download/v1.1.22/Tommi-1.1.22-win-x64.zip)。
+下载 [Windows 安装包](https://github.com/Dante9k/tommi/releases/download/v1.1.23/Tommi-1.1.23-Setup.exe) 或 [便携 ZIP](https://github.com/Dante9k/tommi/releases/download/v1.1.23/Tommi-1.1.23-win-x64.zip)。
 
 - Windows 10 / 11，x64，.NET Framework 4.8。
-- 图形安装器支持编辑完整安装路径，或点击「浏览」选择专用空文件夹。默认位置为 `%LOCALAPPDATA%/Programs/TomatoFocus/1.1.22`，也可安装到其他有写入权限的本地磁盘目录，支持中文和空格。路径框显示的就是实际安装位置，不会额外追加子目录。
+- 图形安装器支持编辑完整安装路径，或点击「浏览」选择专用空文件夹。默认位置为 `%LOCALAPPDATA%/Programs/TomatoFocus/1.1.23`，也可安装到其他有写入权限的本地磁盘目录，支持中文和空格。路径框显示的就是实际安装位置，不会额外追加子目录。
 - 已有空文件夹可直接安装；已有安装仅在所有文件与当前包完全一致时复用。其他非空目录不会被覆盖，升级时请选择新的版本目录。安装器只使用当前用户权限，无权写入时会提示重新选择位置。
 - 解压便携包，双击 `Tomato.exe`，无需安装或管理员权限。
 - 不需要联网，不包含账户登录或遥测。首次打开默认配置登录启动，可在 Tommi 设置中关闭；便携版同样适用。
@@ -65,7 +65,7 @@ Windows 界面支持 **English / 简体中文**。右键番茄或托盘图标，
 | --- | --- |
 | 正式桌面程序 | `build/Tomato.exe` |
 | 开发用验证工具 | `build/Tomato.Verify.exe` |
-| 可分发程序与双语文档 | `dist/Tommi-1.1.22-win-x64/` |
+| 可分发程序与双语文档 | `dist/Tommi-1.1.23-win-x64/` |
 | 便携 ZIP 与 SHA-256 | `dist/` |
 | Windows 图形安装包 | `dist/Tommi-<版本>-Setup.exe`，通过 `./package.ps1` 自动生成 |
 | 网站 ZIP | `dist/`，通过 `./scripts/build-website.ps1` 生成 |
@@ -91,7 +91,7 @@ Windows 界面支持 **English / 简体中文**。右键番茄或托盘图标，
 ./build/Tomato.Verify.exe --language-smoke
 
 # 临时目录内验证自定义安装与快捷方式，不改动日常安装
-./build/Tomato.Verify.exe --installer-test ./dist/Tommi-1.1.22-Setup.exe
+./build/Tomato.Verify.exe --installer-test ./dist/Tommi-1.1.23-Setup.exe
 ```
 
 结果位于 `build/*-results.txt`。桌面流程验证使用独立状态文件，不操作日常计时状态。安装器检查覆盖中文／空格路径、新建／空目录、重复安装、非空目录保护、不可写位置及自定义目标快捷方式。自动流程调用应用动作，不替代实际鼠标和触屏验收。

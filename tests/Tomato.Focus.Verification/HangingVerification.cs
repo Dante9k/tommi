@@ -72,6 +72,15 @@ namespace Tomato.Tests
             m.Detach(normal, 20.2);
             m.Advance(20.2);
             Require(m.Branch == branch && m.Editor == readout && m.Fruit == interrupted, "Tray activation during branch growth must not jump or hide controls");
+            m.Return(normal, 24);
+            m.Advance(26);
+            interrupted = m.Fruit;
+            double yaw = m.Yaw, load = m.Load;
+            m.Detach(normal, 26);
+            m.Advance(26);
+            Require(m.Fruit == interrupted && m.Yaw == yaw && m.Load == load, "Picking during depth motion preserves perspective tilt and branch loading");
+            m.Advance(27);
+            Require(m.Fruit == normal && m.Yaw == 0 && m.Load == 0, "Depth handoff returns to the flat editor without residual transforms");
             foreach (int hz in new[]
             {
                 30,
@@ -115,17 +124,21 @@ namespace Tomato.Tests
             var path = new BranchReturn(root, home, start, screen);
             Point attached = Stem(start), fallen = Stem(path.Sample(.1).Fruit);
             Require(fallen.X > attached.X && fallen.Y > attached.Y, "Gravity first swings the attached fruit down and right");
-            double length = (attached - root).Length, size = start.Width;
+            Require(path.Sample(.2).Fruit.Width > start.Width * .98, "Weight loads the branch before the fruit recedes appreciably");
+            bool loaded = false, receding = false;
             for (int i = 1; i <= 1080; i++)
             {
                 var pose = path.Sample(i / 240.0);
-                double nextLength = (Stem(pose.Fruit) - root).Length;
-                Require(nextLength <= length + .01 && pose.Fruit.Width <= size + .01, "Tether and fruit shorten continuously during reeling");
-                length = nextLength;
-                size = pose.Fruit.Width;
+                double projection = BranchReturn.FocalLength / (BranchReturn.FocalLength + pose.WorldStem.Z);
+                Require(Math.Abs(pose.Fruit.Width - start.Width * projection) < .00001, "Apparent size must come only from camera distance");
+                Point projectedStem = root + new Vector(pose.WorldStem.X, pose.WorldStem.Y) * projection;
+                Require((Stem(pose.Fruit) - projectedStem).Length < .00001, "Position and size must use the same perspective camera");
+                loaded |= pose.Load > .1;
+                receding |= pose.WorldStem.Z > 600 && Math.Abs(pose.Yaw) > 1;
             }
 
             Require(path.Sample(BranchReturn.SwingSeconds).Fruit == home, "Pendulum settles exactly at its vertical perch");
+            Require(loaded && receding, "The tether visibly takes weight before the fruit turns and recedes");
             foreach (Rect display in new[]
             {
                 screen,
@@ -165,12 +178,12 @@ namespace Tomato.Tests
                             motion.Advance(i / 240.0);
                             Require(motion.Root == anchor, "Top bezel anchor remains fixed throughout return");
                             Require(!double.IsNaN(motion.Angle) && !double.IsInfinity(motion.Fruit.X), "Pendulum remains finite");
-                            Require((motion.Fruit.Location - previous.Location).Length < 40, "Return never teleports across a display boundary");
+                            Require((motion.Fruit.Location - previous.Location).Length < 40, "Return never teleports across a display boundary: " + display + " start " + origin + " time " + i / 240.0 + " fruit " + motion.Fruit);
                             Point stem = Stem(motion.Fruit);
                             double tilt = motion.Angle * Math.PI / 180, width = motion.Fruit.Width;
                             Point center = stem + new Vector(-Math.Sin(tilt) * width * .28, Math.Cos(tilt) * width * .28);
                             double radius = width * .44;
-                            Require(center.X - radius >= display.Left - .1 && center.X + radius <= display.Right + .1 && center.Y + radius <= display.Bottom + .1, "Visible fruit stays on display: " + display + " start " + origin + " time " + i / 240.0);
+                            Require(center.X - radius >= display.Left - .1 && center.X + radius <= display.Right + .1 && center.Y + radius <= display.Bottom + .1, "Visible fruit stays on display: " + display + " start " + origin + " time " + i / 240.0 + " center " + center + " radius " + radius);
                             previous = motion.Fruit;
                         }
                     }
@@ -279,7 +292,7 @@ namespace Tomato.Tests
                 for (int i = 0; i < 8; i++)
                 {
                     int col = i % 4, row = i / 4;
-                    var m = new HangingMotion(new Rect(165, 32, 76, 76), new Point(203, -4));
+                    var m = new HangingMotion(new Rect(165, 32, 76, 76), new Point(203, -4), new Rect(0, 0, 300, 300));
                     string label;
                     if (i < 4)
                     {
@@ -312,7 +325,7 @@ namespace Tomato.Tests
                             "08 / REST"
                         }[i - 4];
                         m.Return(new Rect(56, 78, 220, 220), 0);
-                        m.Advance(new[] { .5, 1.0, 1.5, HangingMotion.ReturnDuration }[i - 4]);
+                        m.Advance(new[] { .5, 1.1, 2.2, HangingMotion.ReturnDuration }[i - 4]);
                     }
 
                     var surface = new HangingSurface(m, art, snapshot)
@@ -336,6 +349,50 @@ namespace Tomato.Tests
             }
 
             Save(drawing, "hanging-storyboard.png", 1200, 600, 1.5);
+        }
+
+        public static int ReturnFrames()
+        {
+            var app = new Application
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown
+            };
+            var c = new AppController(app, Output("return-render-state.xml"), new StartupVerification.FakeRegistration());
+            try
+            {
+                c.Launch(false, false);
+                string folder = Output("return-frames");
+                Directory.CreateDirectory(folder);
+                var motion = new HangingMotion(new Rect(788, 32, 76, 76), new Point(826, -4), new Rect(0, 0, 900, 600));
+                motion.Return(new Rect(70, 210, 220, 220), 0);
+                var surface = new HangingSurface(motion, Art.TomatoImage(880), c.Window.IdleSnapshot())
+                {
+                    Width = 900,
+                    Height = 600
+                };
+                surface.Measure(new Size(900, 600));
+                surface.Arrange(new Rect(0, 0, 900, 600));
+                for (int i = 0; i < 195; i++)
+                {
+                    motion.Advance(Math.Max(0, i / 30.0 - .4));
+                    surface.InvalidateVisual();
+                    surface.UpdateLayout();
+                    var frame = new DrawingVisual();
+                    using (var dc = frame.RenderOpen())
+                    {
+                        dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(238, 243, 230)), null, new Rect(0, 0, 900, 600));
+                        dc.DrawRectangle(new VisualBrush(surface) { Stretch = Stretch.None, ViewboxUnits = BrushMappingMode.Absolute, Viewbox = new Rect(0, 0, 900, 600) }, null, new Rect(0, 0, 900, 600));
+                    }
+
+                    Save(frame, Path.Combine("return-frames", i.ToString("D3") + ".png"), 900, 600, 1);
+                }
+
+                return 0;
+            }
+            finally
+            {
+                c.Quit();
+            }
         }
 
         public static void Smoke(AppController c)

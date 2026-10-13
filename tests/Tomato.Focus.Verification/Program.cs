@@ -17,12 +17,14 @@ namespace Tomato.Tests
                 return Verification.Run();
             if (mode == "--render-preview")
                 return Verification.Render();
+            if (mode == "--render-return")
+                return HangingVerification.ReturnFrames();
             if (mode == "--installer-test" && args.Length == 2)
                 return InstallerVerification.Run(args[1]);
             if (mode != "--smoke-test" && mode != "--focus-smoke" && mode != "--settings-smoke" && mode != "--wheel-smoke" && mode != "--language-smoke" && mode != "--hanging-smoke" && mode != "--hanging-input-smoke" && mode != "--hanging-timeout-smoke")
             {
                 Console.Error.WriteLine("Unknown mode: " + mode);
-                Console.Error.WriteLine("Usage: Tomato.Verify.exe [--self-test|--render-preview|--smoke-test|--focus-smoke|--settings-smoke|--wheel-smoke|--language-smoke|--hanging-smoke|--hanging-input-smoke|--hanging-timeout-smoke|--installer-test SETUP_PATH]");
+                Console.Error.WriteLine("Usage: Tomato.Verify.exe [--self-test|--render-preview|--render-return|--smoke-test|--focus-smoke|--settings-smoke|--wheel-smoke|--language-smoke|--hanging-smoke|--hanging-input-smoke|--hanging-timeout-smoke|--installer-test SETUP_PATH]");
                 return 2;
             }
 
