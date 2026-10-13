@@ -226,6 +226,9 @@ namespace Tomato
         static readonly Pen green = Pen("#719A48", 2.7);
         static readonly Pen light = Pen("#B8D080", .7);
         static readonly Brush leaf = LeafBrush();
+        static readonly Brush leafFold = FrozenBrush("#4E7836");
+        static readonly Pen vein = Pen("#BDD58C", .55);
+        static readonly DrawingGroup leaflet = LeafDrawing();
         public Point Origin { get; set; }
 
         public HangingSurface(HangingMotion motion, BitmapSource art, BitmapSource editor)
@@ -241,9 +244,11 @@ namespace Tomato
             dc.PushTransform(new TranslateTransform(-Origin.X, -Origin.Y));
             Point root = motion.Root, stem = motion.Stem;
             Vector span = stem - root;
-            // The vine enters vertically through the top bezel, then bends toward the fruit.
-            Point c1 = root + new Vector(0, Math.Max(16, span.Y * .28));
-            Point c2 = stem - new Vector(span.X * .18, Math.Max(16, span.Y * .28));
+            // A relaxed vine bows to one side; pulling takes up the slack gradually.
+            // Both ends stay attached while the curve and its leaf tangents follow the load.
+            double slack = 1 / (1 + Math.Max(0, span.Length - 54) / 90);
+            Point c1 = root + new Vector(-32 * slack, Math.Max(16, span.Y * .28));
+            Point c2 = stem - new Vector(span.X * .18 + 23 * slack, Math.Max(16, span.Y * .32));
             if (motion.Branch > 0)
             {
                 // De Casteljau subdivision grows/retracts the branch along its curve, not by fading it.
@@ -263,15 +268,8 @@ namespace Tomato
                 dc.PushTransform(new TranslateTransform(0, -1));
                 dc.DrawGeometry(null, light, curve);
                 dc.Pop();
-                if (t > .35)
-                {
-                    Point node = Curve(root, c1, c2, stem, .3);
-                    dc.PushOpacity(Math.Min(1, (t - .35) / .4));
-                    DrawLeaf(dc, node, 10, .9);
-                    if (t > .62)
-                        DrawLeaf(dc, Curve(root, c1, c2, stem, .6), 120, .7);
-                    dc.Pop();
-                }
+                DrawBranchLeaf(dc, root, c1, c2, stem, .42, t, -18, .82);
+                DrawBranchLeaf(dc, root, c1, c2, stem, .70, t, 194, .56);
             }
 
             dc.PushTransform(new RotateTransform(motion.Angle, stem.X, stem.Y));
@@ -287,23 +285,94 @@ namespace Tomato
             dc.Pop();
         }
 
+        static void DrawBranchLeaf(DrawingContext dc, Point root, Point c1, Point c2, Point stem, double position, double growth, double angle, double scale)
+        {
+            double unfurl = Math.Max(0, Math.Min(1, (growth - position) / .18));
+            if (unfurl == 0)
+                return;
+            unfurl = unfurl * unfurl * (3 - 2 * unfurl);
+            Point node = Curve(root, c1, c2, stem, position);
+            Vector tangent = (c1 - root) * (3 * (1 - position) * (1 - position)) + (c2 - c1) * (6 * (1 - position) * position) + (stem - c2) * (3 * position * position);
+            double bend = Math.Atan2(tangent.Y, tangent.X) * 180 / Math.PI - 90;
+            dc.PushOpacity(unfurl);
+            DrawLeaf(dc, node, angle + bend * .65, scale * (.35 + .65 * unfurl));
+            dc.Pop();
+        }
+
         static void DrawLeaf(DrawingContext dc, Point node, double angle, double scale)
         {
-            dc.PushTransform(new RotateTransform(angle, node.X, node.Y));
-            dc.PushTransform(new ScaleTransform(scale, scale, node.X, node.Y));
-            var shape = new StreamGeometry();
-            using (var path = shape.Open())
+            dc.PushTransform(new TranslateTransform(node.X, node.Y));
+            dc.PushTransform(new RotateTransform(angle));
+            dc.PushTransform(new ScaleTransform(scale, scale));
+            dc.DrawDrawing(leaflet);
+            dc.Pop();
+            dc.Pop();
+            dc.Pop();
+        }
+
+        static DrawingGroup LeafDrawing()
+        {
+            var drawing = new DrawingGroup();
+            using (var dc = drawing.Open())
             {
-                path.BeginFigure(node, true, true);
-                path.BezierTo(node + new Vector(3, -16), node + new Vector(22, -20), node + new Vector(31, -17), true, false);
-                path.BezierTo(node + new Vector(26, -3), node + new Vector(9, 4), node, true, false);
+                // A short curved petiole carries an asymmetric, softly lobed tomato leaflet.
+                var petiole = new StreamGeometry();
+                using (var path = petiole.Open())
+                {
+                    path.BeginFigure(new Point(0, 0), false, false);
+                    path.QuadraticBezierTo(new Point(4, 1.5), new Point(9, -1), true, false);
+                }
+
+                petiole.Freeze();
+                dc.DrawGeometry(null, green, petiole);
+                dc.DrawGeometry(null, vein, petiole);
+                var shape = new StreamGeometry();
+                using (var path = shape.Open())
+                {
+                    path.BeginFigure(new Point(7, 0), true, true);
+                    path.BezierTo(new Point(6, -5), new Point(9, -9), new Point(13, -9), true, false);
+                    path.QuadraticBezierTo(new Point(14, -7), new Point(15, -8), true, false);
+                    path.QuadraticBezierTo(new Point(18, -14), new Point(23, -13), true, false);
+                    path.QuadraticBezierTo(new Point(23, -11), new Point(25, -11), true, false);
+                    path.BezierTo(new Point(29, -13), new Point(33, -11), new Point(36, -10), true, false);
+                    path.BezierTo(new Point(31, -8), new Point(32, -2), new Point(27, -2), true, false);
+                    path.QuadraticBezierTo(new Point(25, -3), new Point(24, -2), true, false);
+                    path.QuadraticBezierTo(new Point(21, 4), new Point(17, 2), true, false);
+                    path.QuadraticBezierTo(new Point(16, 1), new Point(15, 2), true, false);
+                    path.BezierTo(new Point(11, 4), new Point(8, 2), new Point(7, 0), true, false);
+                }
+
+                shape.Freeze();
+                dc.DrawGeometry(leaf, null, shape);
+                var fold = new StreamGeometry();
+                using (var path = fold.Open())
+                {
+                    path.BeginFigure(new Point(7, 0), true, true);
+                    path.BezierTo(new Point(18, -1), new Point(29, -8), new Point(36, -10), true, false);
+                    path.BezierTo(new Point(28, -3), new Point(16, 5), new Point(7, 0), true, false);
+                }
+
+                fold.Freeze();
+                dc.DrawGeometry(leafFold, null, fold);
+                var veins = new StreamGeometry();
+                using (var path = veins.Open())
+                {
+                    path.BeginFigure(new Point(7, 0), false, false);
+                    path.BezierTo(new Point(17, -1), new Point(25, -6), new Point(33, -9), true, false);
+                    path.BeginFigure(new Point(15, -2), false, false);
+                    path.QuadraticBezierTo(new Point(12, -4), new Point(12, -7), true, false);
+                    path.BeginFigure(new Point(22, -5), false, false);
+                    path.QuadraticBezierTo(new Point(20, -7), new Point(21, -10), true, false);
+                    path.BeginFigure(new Point(20, -4), false, false);
+                    path.QuadraticBezierTo(new Point(21, -1), new Point(24, -1), true, false);
+                }
+
+                veins.Freeze();
+                dc.DrawGeometry(null, vein, veins);
             }
 
-            shape.Freeze();
-            dc.DrawGeometry(leaf, null, shape);
-            dc.DrawLine(light, node, node + new Vector(24, -13));
-            dc.Pop();
-            dc.Pop();
+            drawing.Freeze();
+            return drawing;
         }
 
         static Point Lerp(Point a, Point b, double t)
