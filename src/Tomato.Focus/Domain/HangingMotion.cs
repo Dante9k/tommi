@@ -17,13 +17,19 @@ namespace Tomato
     public sealed class HangingMotion
     {
         public const double PullThreshold = 96;
-        public const double ReturnDuration = BranchReturn.ReachSeconds + BranchReturn.SwingSeconds;
+        public const double RestSize = 60;
+        public const double RestOpacity = .62;
+        public const double MaxReturnDuration = 8.5;
         public const double DetachDuration = .68;
         readonly Rect home;
         readonly Point root;
         Rect from, target;
         readonly Rect? screen;
         BranchReturn returning;
+        VineReach reach;
+        public double ReachDuration { get; private set; }
+        public double ReturnDuration { get; private set; }
+
         public Rect ReturnBounds
         {
             get
@@ -33,7 +39,9 @@ namespace Tomato
         }
 
         Vector pull, grab;
-        double started, fromAngle, fromBranch, fromEditor, fromYaw, fromLoad;
+        double started, fromAngle, fromBranch, fromEditor, fromYaw, fromPitch, fromContact, fromLoad;
+        BudBite fromBud;
+        public BudBite Bud { get; private set; }
         public HangingPhase Phase { get; private set; }
         public Rect Fruit { get; private set; }
         public Point Root { get; private set; }
@@ -41,7 +49,19 @@ namespace Tomato
         public double Branch { get; private set; }
         public double Editor { get; private set; }
         public double Yaw { get; private set; }
+        public double Pitch { get; private set; }
+        public double Contact { get; private set; }
         public double Load { get; private set; }
+
+        public double Opacity
+        {
+            get
+            {
+                // Fade with camera depth, including an interrupted return or a pickup.
+                double distance = (220 / Fruit.Width - 1) / (220 / home.Width - 1);
+                return 1 - (1 - RestOpacity) * Smooth(distance);
+            }
+        }
 
         public bool Animating
         {
@@ -55,7 +75,7 @@ namespace Tomato
         {
             get
             {
-                return new Point(Fruit.X + Fruit.Width * .5, Fruit.Y + Fruit.Height * .22);
+                return TomatoAttachment.At(Fruit);
             }
         }
 
@@ -67,6 +87,11 @@ namespace Tomato
             Fruit = home;
             Root = root;
             Branch = 1;
+            Contact = 1;
+            Bud = new BudBite
+            {
+                Merge = 1
+            };
         }
 
         public void Return(Rect editor, double time)
@@ -74,11 +99,15 @@ namespace Tomato
             from = Fruit = editor;
             Root = root;
             returning = new BranchReturn(root, home, editor, screen);
+            reach = new VineReach(new VineProjection(root, Stem, editor.Width, 0));
+            ReachDuration = reach.Duration + BranchReturn.CatchSeconds;
+            ReturnDuration = ReachDuration + returning.Duration;
             started = time;
             Phase = HangingPhase.Returning;
             Branch = 0;
             Editor = 1;
-            Angle = Yaw = Load = 0;
+            Angle = Yaw = Pitch = Contact = Load = 0;
+            Bud = BudBite.Sample(0, reach.Duration);
         }
 
         public void Grab(double time)
@@ -117,7 +146,10 @@ namespace Tomato
             fromBranch = Branch;
             fromEditor = Editor;
             fromYaw = Yaw;
+            fromPitch = Pitch;
+            fromContact = Contact;
             fromLoad = Load;
+            fromBud = Bud;
             target = editor;
             started = time;
             Phase = HangingPhase.Detaching;
@@ -138,20 +170,31 @@ namespace Tomato
             }
             else if (Phase == HangingPhase.Returning)
             {
-                Branch = Smooth(elapsed / BranchReturn.ReachSeconds);
-                double swing = Math.Max(0, elapsed - BranchReturn.ReachSeconds);
+                double approachSeconds = reach.Duration;
+                Branch = reach.Progress(elapsed);
+                Bud = BudBite.Sample(elapsed, approachSeconds);
+                Contact = Smooth((elapsed - approachSeconds) / BranchReturn.CatchSeconds);
+                double swing = Math.Max(0, elapsed - ReachDuration);
+                if (swing < 1e-8)
+                {
+                    swing = 0;
+                    if (elapsed >= ReachDuration - 1e-8)
+                        Contact = 1;
+                }
+
                 var pose = returning.Sample(swing);
                 Fruit = pose.Fruit;
                 Angle = pose.Angle;
                 Yaw = pose.Yaw;
+                Pitch = pose.Pitch;
                 Load = pose.Load;
                 Root = root;
                 Editor = 1 - Smooth(swing / .55);
-                if (elapsed >= ReturnDuration)
+                if (elapsed >= ReturnDuration - 1e-8)
                 {
                     Fruit = home;
                     Root = root;
-                    Angle = Editor = Yaw = Load = 0;
+                    Angle = Editor = Yaw = Pitch = Load = 0;
                     Phase = HangingPhase.Hanging;
                 }
             }
@@ -162,6 +205,9 @@ namespace Tomato
                 Fruit = Mix(from, target, growth);
                 Angle = fromAngle * (1 - growth);
                 Yaw = fromYaw * (1 - growth);
+                Pitch = fromPitch * (1 - growth);
+                Contact = fromContact * (1 - Smooth(elapsed / .16));
+                Bud = fromBud.Fade(1 - Smooth(elapsed / .18));
                 Load = fromLoad * (1 - growth);
                 Branch = fromBranch * (1 - Smooth(elapsed / .22));
                 Editor = fromEditor + (1 - fromEditor) * Smooth((t - .45) / .55);
