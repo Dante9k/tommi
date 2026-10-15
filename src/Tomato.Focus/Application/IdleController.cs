@@ -67,8 +67,8 @@ namespace Tomato
             editor = new Rect(controller.Window.Left, controller.Window.Top, controller.Window.Width, controller.Window.Height);
             area = WorkArea();
             Rect display = DisplayBounds();
-            Rect home = new Rect(area.Right - 112, Math.Max(display.Top + 32, area.Top + 12), 76, 76);
-            var motion = new HangingMotion(home, new Point(home.Left + home.Width / 2, display.Top - 4), display);
+            Rect home = new Rect(area.Right - 74 - HangingMotion.RestSize * TomatoAttachment.X, Math.Max(display.Top + 32, area.Top + 12), HangingMotion.RestSize, HangingMotion.RestSize);
+            var motion = new HangingMotion(home, new Point(TomatoAttachment.At(home).X, display.Top - 4), display);
             BitmapSource snapshot = controller.Window.IdleSnapshot();
             // A slow audio driver may take up to 200ms to close. Finish that work before
             // starting the branch timeline, so its first frames are never skipped.
@@ -97,7 +97,7 @@ namespace Tomato
                 return;
             var motion = Window.Motion;
             // Expand around the stem, then drop slightly under gravity; clamp only the destination.
-            editor = new Rect(motion.Stem.X - 110, motion.Stem.Y - 220 * .22 + 32, 220, 220);
+            editor = new Rect(motion.Stem.X - 220 * TomatoAttachment.X, motion.Stem.Y - 220 * TomatoAttachment.Y + 32, 220, 220);
             editor.X = Math.Max(area.Left + 8, Math.Min(editor.X, area.Right - editor.Width - 8));
             editor.Y = Math.Max(area.Top + 8, Math.Min(editor.Y, area.Bottom - editor.Height - 8));
             var bounds = new Rect(Window.Left, Window.Top, Window.Width, Window.Height);

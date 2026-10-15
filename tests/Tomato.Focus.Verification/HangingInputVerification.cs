@@ -76,18 +76,20 @@ namespace Tomato.Tests
                     }
                     else if (stage == 3)
                     {
+                        SetCursorPos(start.X, start.Y);
                         mouse_event(2, 0, 0, 0, UIntPtr.Zero);
                         down = true;
                     }
                     else if (stage == 4)
                     {
-                        Require(c.Idle.IsHanging && !c.Window.IsVisible && c.Idle.Window.Motion.Phase == HangingPhase.Pulling, "Double-click must not expand the hanging fruit");
+                        Require(c.Idle.IsHanging && !c.Window.IsVisible && c.Idle.Window.Motion.Phase == HangingPhase.Pulling, "Double-click must not expand the hanging fruit; phase=" + (c.Idle.Window == null ? "none" : c.Idle.Window.Motion.Phase.ToString()) + ", editorVisible=" + c.Window.IsVisible + ", captured=" + (c.Idle.Window != null && c.Idle.Window.IsMouseCaptured));
                         mouse_event(4, 0, 0, 0, UIntPtr.Zero);
                         down = false;
                     }
                     else if (stage == 5)
                     {
                         Require(c.Idle.Window.Motion.Phase == HangingPhase.Hanging, "Double-click settles without detaching");
+                        SetCursorPos(start.X, start.Y);
                         mouse_event(2, 0, 0, 0, UIntPtr.Zero);
                         down = true;
                     }

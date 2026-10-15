@@ -2,6 +2,8 @@
 
 English | [简体中文](README.zh-CN.md)
 
+**Local preview 1.1.30 (unpublished):** the vine tip is now a fierce little green bud. It approaches with furrowed brows, opens its mouth, bites the stem, holds briefly, then narrows into the stalk as its features disappear. Retraction starts after the bite and merge finish. Build with `./package.ps1` for `dist/Tommi-1.1.30-Setup.exe`. Public downloads remain at 1.1.23; local visual acceptance is pending.
+
 [![Windows quality](https://github.com/Dante9k/tommi/actions/workflows/ci.yml/badge.svg)](https://github.com/Dante9k/tommi/actions/workflows/ci.yml)
 
 **One tomato. One uninterrupted moment of focus.**

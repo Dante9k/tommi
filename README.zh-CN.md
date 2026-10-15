@@ -1,5 +1,7 @@
 # Tommi
 
+**本地验收版 1.1.30（未发布）：** 藤蔓末端改为凶萌芽头，压眉靠近、张嘴咬住果蒂，短暂停住后脸颊收细、五官消退并融入枝干，最后再承重拉远。运行 `./package.ps1` 生成 `dist/Tommi-1.1.30-Setup.exe`；公网下载保持 1.1.23，动画待本地验收。
+
 [English](README.md) | 简体中文
 
 [![Windows quality](https://github.com/Dante9k/tommi/actions/workflows/ci.yml/badge.svg)](https://github.com/Dante9k/tommi/actions/workflows/ci.yml)
